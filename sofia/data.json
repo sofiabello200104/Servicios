@@ -1,0 +1,670 @@
+{
+  "configuracion_jornada": {
+    "marco_legal": "Reforma laboral Colombia (42 horas semanales)",
+    "lunes_a_jueves": {
+      "jornada_bruta_horas": 9.1667,
+      "horarios_detalle": [
+        {
+          "inicio": "07:10",
+          "fin": "12:50",
+          "duracion_horas": 5.6667
+        },
+        {
+          "inicio": "14:00",
+          "fin": "17:30",
+          "duracion_horas": 3.5
+        }
+      ],
+      "bloques_protegidos_no_agendables": [
+        {
+          "inicio": "07:50",
+          "fin": "08:00",
+          "duracion_minutos": 10
+        },
+        {
+          "inicio": "12:00",
+          "fin": "12:50",
+          "duracion_minutos": 50
+        },
+        {
+          "inicio": "17:00",
+          "fin": "17:30",
+          "duracion_minutos": 30
+        }
+      ],
+      "total_protegido_horas": 1.5,
+      "capacidad_neta_agendable_horas": 7.6667
+    },
+    "viernes": {
+      "jornada_bruta_horas": 8.0,
+      "horarios_detalle": [
+        {
+          "inicio": "07:50",
+          "fin": "12:50",
+          "duracion_horas": 5.0
+        },
+        {
+          "inicio": "14:00",
+          "fin": "17:00",
+          "duracion_horas": 3.0
+        }
+      ],
+      "bloques_protegidos_no_agendables": [
+        {
+          "inicio": "07:50",
+          "fin": "08:00",
+          "duracion_minutos": 10
+        },
+        {
+          "inicio": "12:00",
+          "fin": "12:50",
+          "duracion_minutos": 50
+        }
+      ],
+      "total_protegido_horas": 1.0,
+      "capacidad_neta_agendable_horas": 7.0
+    },
+    "capacidad_semanal_neta_horas": 37.6667
+  },
+  "logica_calculo_metricas": {
+    "horas_ticket": "Hora_Cal_Final - Hora_Cal_Inicial + (Hora_Cal_Final_3 - Hora_Cal_Inicial_3)",
+    "capacidad_instalada_periodo": "(Dias_Lun_Jue * 7.6667) + (Dias_Vie * 7.0)",
+    "porcentaje_utilizacion": "(Horas_Reservadas_Total / Capacidad_Instalada) * 100",
+    "horas_disponibles": "Capacidad_Instalada - Horas_Reservadas_Total",
+    "consumo_cliente_proyecto": {
+      "campo_cliente": "Cliente",
+      "campo_proyecto": "Proyecto",
+      "horas_consumidas": "SUM(Horas_Ticket) agrupado por Cliente y Proyecto",
+      "porcentaje_del_total": "(Horas_Proyecto / Total_Horas_Periodo) * 100"
+    },
+    "eficiencia_tiempo_soporte": {
+      "campo_tiempo_real": "Tiempo_de_llamada",
+      "formula": "(SUM(Tiempo_de_llamada) / SUM(Horas_Ticket)) * 100"
+    }
+  },
+  "umbrales_semaforo": [
+    {
+      "estado": "Alta Disponibilidad",
+      "rango_min": 0,
+      "rango_max": 69.99,
+      "color_badge": "#3B82F6",
+      "descripcion": "El recurso cuenta con espacio libre suficiente para nuevas asignaciones"
+    },
+    {
+      "estado": "Óptimo",
+      "rango_min": 70.0,
+      "rango_max": 85.0,
+      "color_badge": "#10B981",
+      "descripcion": "Rango ideal de ocupación operativa"
+    },
+    {
+      "estado": "Límite",
+      "rango_min": 85.01,
+      "rango_max": 100.0,
+      "color_badge": "#F59E0B",
+      "descripcion": "Capacidad casi completada, riesgo de saturación ante nuevos requerimientos"
+    },
+    {
+      "estado": "Saturado",
+      "rango_min": 100.01,
+      "rango_max": null,
+      "color_badge": "#EF4444",
+      "descripcion": "Horas asignadas exceden la capacidad neta disponible del periodo"
+    }
+  ],
+  "especificacion_ui_dashboard": {
+    "vistas": [
+      {
+        "id": "resumen",
+        "nombre": "Resumen"
+      },
+      {
+        "id": "capacidad_rendimiento",
+        "nombre": "Capacidad y Rendimiento",
+        "nueva": true
+      }
+    ],
+    "filtros_principales": [
+      {
+        "campo": "temporalidad",
+        "tipo": "single_select",
+        "opciones": [
+          "Diario",
+          "Semanal",
+          "Mensual",
+          "Anual"
+        ],
+        "default": "Diario"
+      },
+      {
+        "campo": "periodo",
+        "tipo": "date_range_picker",
+        "desde": "01/09/2026",
+        "hasta": "11/09/2026"
+      },
+      {
+        "campo": "recursos",
+        "tipo": "multi_select",
+        "origen_columna": "Recurso_Soporte",
+        "placeholder": "Seleccionar uno o varios recursos...",
+        "permitir_todos": true
+      },
+      {
+        "campo": "cliente",
+        "tipo": "single_select",
+        "origen_columna": "Cliente",
+        "placeholder": "Todos los clientes",
+        "afecta": "filtro_proyecto"
+      },
+      {
+        "campo": "proyecto",
+        "tipo": "single_select",
+        "origen_columna": "Proyecto",
+        "placeholder": "Todos los proyectos",
+        "depende_de": "cliente",
+        "regla": "Filtrar solo los proyectos del cliente seleccionado. Si no hay cliente seleccionado, listar todos."
+      }
+    ],
+    "tarjetas_kpi": [
+      {
+        "titulo": "Capacidad Instalada",
+        "unidad": "Horas (h)",
+        "origen": "Total capacidad neta equipo según recursos filtrados"
+      },
+      {
+        "titulo": "Horas Agendadas",
+        "unidad": "Horas (h)",
+        "origen": "Suma horas de tickets agendados"
+      },
+      {
+        "titulo": "Horas Disponibles",
+        "unidad": "Horas (h)",
+        "origen": "Capacidad Instalada - Horas Agendadas"
+      },
+      {
+        "titulo": "% Utilización Global",
+        "unidad": "%",
+        "origen": "(Horas Agendadas / Capacidad Instalada) * 100"
+      }
+    ],
+    "fila_graficas_superiores": [
+      {
+        "id": "ocupacion_por_recurso",
+        "tipo": "stacked_bar",
+        "ancho_grid": "col-span-6",
+        "titulo": "Ocupación por recurso",
+        "eje_x": "Recurso_Soporte",
+        "eje_y": "Horas",
+        "series": [
+          {
+            "nombre": "Horas Reservadas",
+            "color": "#0284C7"
+          },
+          {
+            "nombre": "Horas Disponibles",
+            "color": "#E2E8F0"
+          },
+          {
+            "nombre": "Horas Saturadas",
+            "color": "#DC2626"
+          }
+        ]
+      },
+      {
+        "id": "consumo_por_proyecto",
+        "tipo": "horizontal_bar",
+        "ancho_grid": "col-span-6",
+        "titulo_dinamico": "filtro_cliente ? 'Consumo por Proyecto - ' + filtro_cliente : 'Consumo por Proyecto (Global)'",
+        "eje_y": "Proyecto",
+        "eje_x": "Horas Consumidas",
+        "regla_datos": "Filtrar por columna Cliente si se selecciona un cliente en el dropdown; de lo contrario agrupar proyectos globales. Ordenar DESC por Horas.",
+        "tooltip": "{proyecto}: {horas}h ({porcentaje_consumo}%)"
+      }
+    ],
+    "fila_tacometros_individuales": [
+      {
+        "id": "tacometro_ocupacion_programada",
+        "tipo": "gauge",
+        "ancho_grid": "col-span-6",
+        "posicion": "izquierda",
+        "titulo": "Horas Programadas por Recurso",
+        "selector_recurso": {
+          "tipo": "single_select",
+          "campo": "Recurso_Soporte",
+          "placeholder": "Seleccionar recurso para evaluar"
+        },
+        "formula_valor": "(SUM(Horas_Ticket) / Capacidad_Instalada_Recurso) * 100",
+        "unidad": "%",
+        "segmentos": [
+          {
+            "limite": 70,
+            "color": "#3B82F6",
+            "label": "Alta Disponibilidad"
+          },
+          {
+            "limite": 85,
+            "color": "#10B981",
+            "label": "Óptimo"
+          },
+          {
+            "limite": 100,
+            "color": "#F59E0B",
+            "label": "Límite"
+          },
+          {
+            "limite": 150,
+            "color": "#EF4444",
+            "label": "Saturado"
+          }
+        ],
+        "pie_de_tacometro": "{horas_agendadas}h programadas / {capacidad_neta}h capacidad"
+      },
+      {
+        "id": "tacometro_tiempo_soporte_real",
+        "tipo": "gauge",
+        "ancho_grid": "col-span-6",
+        "posicion": "derecha",
+        "titulo": "Tiempo Real de Soporte vs Programado",
+        "vinculado_a_selector": "tacometro_ocupacion_programada.selector_recurso",
+        "formula_valor": "(SUM(Tiempo_de_llamada) / SUM(Horas_Ticket)) * 100",
+        "unidad": "%",
+        "segmentos": [
+          {
+            "limite": 80,
+            "color": "#3B82F6",
+            "label": "Cierre Rápido"
+          },
+          {
+            "limite": 105,
+            "color": "#10B981",
+            "label": "En Tiempo"
+          },
+          {
+            "limite": 150,
+            "color": "#EF4444",
+            "label": "Excedido"
+          }
+        ],
+        "pie_de_tacometro": "{horas_llamada_reales}h reales / {horas_ticket_programadas}h programadas"
+      }
+    ],
+    "tabla_detalle": {
+      "titulo": "Detalle por recurso",
+      "columnas": [
+        "Recurso",
+        "Rol",
+        "Capacidad_h",
+        "Reservadas_h",
+        "Disponibles_h",
+        "Porcentaje_Uso",
+        "Estado"
+      ],
+      "regla_badges": {
+        "Alta Disponibilidad": "bg-blue-100 text-blue-800",
+        "Óptimo": "bg-green-100 text-green-800",
+        "Límite": "bg-yellow-100 text-yellow-800",
+        "Saturado": "bg-red-100 text-red-800"
+      }
+    }
+  },
+  "reglas_calendario_laboral": {
+    "pais": "Colombia",
+    "excluir_sabados": true,
+    "excluir_domingos": true,
+    "excluir_festivos_colombia": true,
+    "fuente_festivos": "Array/API Ley Emiliani Colombia",
+    "dias_computables": [
+      {
+        "dia": "Lunes a Jueves",
+        "horas_habiles_netas": 7.6667
+      },
+      {
+        "dia": "Viernes",
+        "horas_habiles_netas": 7.0
+      }
+    ],
+    "logica_calculo_capacidad": "Iterar rango [Desde, Hasta]. Para cada fecha: si es sábado, domingo o festivo -> 0 horas. Si es Lun-Jue -> +7.67h. Si es Vie -> +7.0h."
+  },
+  "modificaciones_layout": {
+    "eliminar_componentes": [
+      {
+        "id": "tendencia_horas",
+        "motivo": "Gráfica eliminada por requerimiento"
+      },
+      {
+        "campo_tabla": "ROL",
+        "motivo": "Columna eliminada de la tabla Detalle por Recurso"
+      }
+    ],
+    "fila_tacometros": {
+      "contenedor": "grid grid-cols-1 md:grid-cols-2 gap-6",
+      "tacometro_izquierda": {
+        "id": "tacometro_ocupacion_programada",
+        "titulo": "Horas Programadas por Recurso",
+        "filtros_locales": [
+          {
+            "campo": "recurso",
+            "tipo": "single_select",
+            "origen": "Recurso_Soporte",
+            "placeholder": "Seleccionar recurso"
+          },
+          {
+            "campo": "rango_fechas_local",
+            "tipo": "date_range_picker",
+            "hereda_reglas_habiles": true,
+            "descripcion": "Filtro local independiente con exclusión de fines de semana y festivos Colombia"
+          }
+        ],
+        "formula": "(SUM(Horas_Ticket) / Capacidad_Neta_Filtrada) * 100",
+        "unidad": "%",
+        "rangos": [
+          {
+            "limite": 70,
+            "color": "#3B82F6",
+            "label": "Alta Disponibilidad"
+          },
+          {
+            "limite": 85,
+            "color": "#10B981",
+            "label": "Óptimo"
+          },
+          {
+            "limite": 100,
+            "color": "#F59E0B",
+            "label": "Límite"
+          },
+          {
+            "limite": 150,
+            "color": "#EF4444",
+            "label": "Saturado"
+          }
+        ]
+      },
+      "tacometro_derecha": {
+        "id": "tacometro_tiempo_soporte_real",
+        "titulo": "Tiempo Real de Soporte vs Programado",
+        "vinculado_a_filtros": "tacometro_ocupacion_programada",
+        "formula": "(SUM(Tiempo_de_llamada) / SUM(Horas_Ticket)) * 100",
+        "unidad": "%",
+        "rangos": [
+          {
+            "limite": 80,
+            "color": "#3B82F6",
+            "label": "Cierre Rápido"
+          },
+          {
+            "limite": 105,
+            "color": "#10B981",
+            "label": "En Tiempo"
+          },
+          {
+            "limite": 150,
+            "color": "#EF4444",
+            "label": "Excedido"
+          }
+        ]
+      }
+    },
+    "tabla_detalle_drilldown": {
+      "id": "tabla_detalle_recurso",
+      "titulo": "Detalle por Recurso",
+      "interaccion_estilo_powerbi": {
+        "tipo": "Drill-down / Análisis de datos",
+        "accion": "Click en una fila de recurso despliega o abre modal con los tickets que sustentan las horas calculadas"
+      },
+      "columnas_principales": [
+        {
+          "campo": "Recurso",
+          "origen": "Recurso_Soporte"
+        },
+        {
+          "campo": "Capacidad (h)",
+          "formula": "Dias_Habiles_Lun_Jue * 7.67 + Dias_Habiles_Vie * 7.0"
+        },
+        {
+          "campo": "Reservadas (h)",
+          "formula": "SUM(Horas_Ticket)"
+        },
+        {
+          "campo": "Disponibles (h)",
+          "formula": "Capacidad_h - Reservadas_h"
+        },
+        {
+          "campo": "% Uso",
+          "formula": "(Reservadas_h / Capacidad_h) * 100"
+        },
+        {
+          "campo": "Estado",
+          "tipo": "badge_semaforo"
+        }
+      ],
+      "columnas_drilldown_tickets": [
+        {
+          "campo": "ID",
+          "origen": "ID"
+        },
+        {
+          "campo": "Fecha",
+          "origen": "Fecha"
+        },
+        {
+          "campo": "Cliente",
+          "origen": "Cliente"
+        },
+        {
+          "campo": "Proyecto",
+          "origen": "Proyecto"
+        },
+        {
+          "campo": "Producto",
+          "origen": "Producto"
+        },
+        {
+          "campo": "Hora Inicial",
+          "origen": "Hora_Cal_Inicial"
+        },
+        {
+          "campo": "Hora Final",
+          "origen": "Hora_Cal_Final"
+        },
+        {
+          "campo": "Horas Consumidas",
+          "formula": "Hora_Cal_Final - Hora_Cal_Inicial"
+        },
+        {
+          "campo": "Tiempo Llamada Real",
+          "origen": "Tiempo_de_llamada"
+        },
+        {
+          "campo": "Prioridad ANS",
+          "origen": "Prioridad_del_Servicio_ANS"
+        }
+      ]
+    }
+  },
+  "cambios_solicitados_v4": {
+    "1_eliminar_filtro_temporalidad": {
+      "componente": "filtros_principales",
+      "accion": "ELIMINAR el selector 'TEMPORALIDAD' (Mensual, Diario, etc.). El rango queda controlado exclusivamente por los inputs 'DESDE' y 'HASTA'."
+    },
+    "2_eliminar_grafica_tendencia": {
+      "componente": "tendencia_de_horas",
+      "accion": "ELIMINAR completamente el contenedor de la gráfica de líneas/área 'Tendencia de horas'."
+    },
+    "3_ajustes_tabla_detalle": {
+      "componente": "tabla_detalle_recurso",
+      "eliminar_columna": "ROL",
+      "agregar_columna_o_accion": {
+        "columna": "ID",
+        "tipo": "drill_down_analisis",
+        "descripcion": "Identificador o botón 'ID / Analizar' para desplegar los tickets que componen las horas del recurso."
+      }
+    }
+  },
+  "especificacion_ui_dashboard_actualizada": {
+    "vistas": [
+      {
+        "id": "resumen",
+        "nombre": "Resumen"
+      },
+      {
+        "id": "capacidad_rendimiento",
+        "nombre": "Capacidad y Rendimiento"
+      },
+      {
+        "id": "tickets_activos",
+        "nombre": "Tickets Activos"
+      }
+    ],
+    "filtros_principales": [
+      {
+        "campo": "desde",
+        "tipo": "date_input",
+        "descripcion": "Fecha inicial de evaluación"
+      },
+      {
+        "campo": "hasta",
+        "tipo": "date_input",
+        "descripcion": "Fecha final de evaluación"
+      },
+      {
+        "campo": "recursos",
+        "tipo": "multi_select",
+        "origen_columna": "Recurso_Soporte",
+        "placeholder": "Seleccionar uno o varios recursos..."
+      },
+      {
+        "campo": "cliente",
+        "tipo": "single_select",
+        "origen_columna": "Cliente",
+        "placeholder": "Todos los clientes"
+      },
+      {
+        "campo": "proyecto",
+        "tipo": "single_select",
+        "origen_columna": "Proyecto",
+        "placeholder": "Todos los proyectos",
+        "depende_de": "cliente"
+      }
+    ],
+    "tarjetas_kpi": [
+      {
+        "titulo": "Capacidad Instalada",
+        "unidad": "h"
+      },
+      {
+        "titulo": "Horas Agendadas",
+        "unidad": "h"
+      },
+      {
+        "titulo": "Horas Disponibles",
+        "unidad": "h"
+      },
+      {
+        "titulo": "% Utilización Global",
+        "unidad": "%"
+      }
+    ],
+    "fila_graficas_superiores": [
+      {
+        "id": "ocupacion_por_recurso",
+        "tipo": "stacked_bar",
+        "ancho_grid": "col-span-6",
+        "titulo": "Ocupación por recurso"
+      },
+      {
+        "id": "consumo_por_proyecto",
+        "tipo": "horizontal_bar",
+        "ancho_grid": "col-span-6",
+        "titulo": "Consumo por Proyecto (Global)",
+        "titulo_filtrado": "Consumo por Proyecto - {cliente_seleccionado}"
+      }
+    ],
+    "fila_tacometros": {
+      "filtros_locales": [
+        {
+          "campo": "recurso_evaluar",
+          "tipo": "single_select",
+          "origen": "Recurso_Soporte",
+          "label": "SELECCIONAR RECURSO PARA EVALUAR"
+        },
+        {
+          "campo": "desde_local",
+          "tipo": "date_input",
+          "label": "DESDE"
+        },
+        {
+          "campo": "hasta_local",
+          "tipo": "date_input",
+          "label": "HASTA"
+        }
+      ],
+      "tacometros": [
+        {
+          "id": "horas_programadas_por_recurso",
+          "tipo": "gauge",
+          "titulo": "Horas Programadas por Recurso",
+          "formula": "(SUM(Horas_Ticket) / Capacidad_Neta_Recurso) * 100",
+          "pie": "{horas_agendadas}h programadas / {capacidad_neta}h capacidad"
+        },
+        {
+          "id": "tiempo_real_vs_programado",
+          "tipo": "gauge",
+          "titulo": "Tiempo Real de Soporte vs Programado",
+          "formula": "(SUM(Tiempo_de_llamada) / SUM(Horas_Ticket)) * 100",
+          "pie": "{horas_reales}h reales / {horas_agendadas}h programadas"
+        }
+      ]
+    },
+    "tabla_detalle": {
+      "id": "detalle_por_recurso",
+      "titulo": "Detalle por recurso",
+      "columnas": [
+        {
+          "key": "recurso",
+          "header": "RECURSO"
+        },
+        {
+          "key": "capacidad_h",
+          "header": "CAPACIDAD (H)"
+        },
+        {
+          "key": "reservadas_h",
+          "header": "RESERVADAS (H)"
+        },
+        {
+          "key": "disponibles_h",
+          "header": "DISPONIBLES (H)"
+        },
+        {
+          "key": "porcentaje_uso",
+          "header": "% USO"
+        },
+        {
+          "key": "estado",
+          "header": "ESTADO"
+        },
+        {
+          "key": "id_tickets",
+          "header": "ID",
+          "tipo": "boton_analizar_tickets"
+        }
+      ],
+      "drilldown_modal": {
+        "titulo": "Tickets asociados a {recurso}",
+        "columnas_vista": [
+          "ID",
+          "Fecha",
+          "Cliente",
+          "Proyecto",
+          "Producto",
+          "Hora_Cal_Inicial",
+          "Hora_Cal_Final",
+          "Horas_Consumidas",
+          "Tiempo_de_llamada",
+          "Prioridad_del_Servicio_ANS"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "sofia-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ticket dashboard for ID12086_Tickets_medidor, no build step, zero dependencies.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/mapper.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

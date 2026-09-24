@@ -1,0 +1,15 @@
+{
+  "name": "cmi-sicss",
+  "version": "0.3.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.4.1"
+  }
+}

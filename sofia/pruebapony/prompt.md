@@ -1,0 +1,6 @@
+Opciones de mejora (priorizadas)
+
+Verificación de 30 segundos del cambio .find(). Confirmar que templates nunca contiene dos nombres con "pipeline". Si existe esa posibilidad y el orden importa, decidir explícitamente entre primera/última coincidencia y dejarlo comentado. Es el único riesgo nuevo introducido por v2.
+Cerrar el desfase en el origen (alto impacto). En mapper.parseMonthIndex, cambiar el respaldo final new Date(raw).getMonth() por getUTCMonth(), o eliminarlo retornando null. Las ramas previas (OData, ISO, DD/MM/YYYY, nombres de mes) ya cubren los formatos reales; esto vuelve la función inmune a UTC-5 por construcción, no por coincidencia de orden.
+Pruebas de regresión de día 1. Añadir a test-runner.html: pmi('2026-03-01') → 2, pmi('01/03/2026') → 2 y un OData de primer día de mes. Las pruebas actuales usan fechas de mitad de mes y no detectarían una reaparición del desfase.
+Capitalizar el norm exportado. Hacer que normK derive del CMI_MAPPER.norm ya expuesto (o consolidarlos), de modo que exista una sola función de normalización compartida entre mapper y render, y agregar una prueba que la cubra. Hoy el export no tiene consumidor, así que el beneficio del cambio anterior aún no se materializa.

@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SOFIA · Dashboard de Tickets</title>
+<link rel="icon" href="data:,">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<!-- Only Tickets Activos needs on-bar data labels (see chart_recursos_servicios /
+     chart_tickets_cliente / chart_tickets_accion_general in charts.js' barChart()
+     dataLabels option) -- registered globally but opt-in per chart so Resumen /
+     Capacidad's existing charts render unchanged. -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/css/app.css" />
+</head>
+<body class="min-h-screen">
+
+<div class="flex min-h-screen">
+
+  <div id="sidebar-backdrop"></div>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="sidebar w-64 text-slate-300 flex flex-col fixed h-screen">
+    <div class="px-5 py-5 border-b border-white/5">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl grad-blue flex items-center justify-center font-bold text-white shadow-lg shadow-sky-500/30">S</div>
+        <div>
+          <div class="text-white font-bold leading-none">SOFIA</div>
+          <div class="text-[11px] text-slate-400 mt-1">Dashboard de Tickets</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="flex-1 py-3 px-2 scrollbar overflow-y-auto">
+      <div class="text-[10px] uppercase tracking-wider text-slate-500 px-3 py-2">Vistas</div>
+      <a data-view="resumen" class="nav-item active flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2 4 4 8-8 4 4"/></svg>
+        Resumen
+      </a>
+      <a data-view="capacidad" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V9m6 8V5M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+        Capacidad y Rendimiento
+      </a>
+      <a data-view="activos" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Primer Nivel de Atención
+      </a>
+      <a data-view="segundo-nivel" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        Segundo Nivel de Atención
+      </a>
+      <!-- Más vistas se agregarán acá a medida que el dashboard crezca. -->
+    </nav>
+
+    <div class="px-5 py-3 border-t border-white/5 text-[11px] text-slate-400">
+      <div class="flex items-center justify-between">
+        <span>Fuente</span>
+        <span class="text-slate-300 font-medium">ID12086_Tickets_medidor</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="lg:ml-64 flex-1 min-h-screen w-full">
+
+    <!-- TOPBAR -->
+    <div id="topbar" class="bg-white border-b border-slate-200 px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between sticky top-0 z-30 gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <button id="hamburger" class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 text-slate-700 active:bg-slate-200 shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="min-w-0">
+          <div class="text-[12px] text-slate-500 uppercase tracking-wider crumb truncate">Panel</div>
+          <h1 class="text-base lg:text-xl font-bold text-slate-900 mt-0.5 page-title truncate">Resumen</h1>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 topbar-actions shrink-0">
+        <span id="last-updated" class="pill">Sin datos aún</span>
+        <button id="btn-parametrizacion" class="px-3 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Parametrización
+        </button>
+        <button id="btn-actualizar-datos" class="px-3 py-2 text-sm font-medium text-white grad-blue rounded-lg flex items-center gap-2 shadow shadow-sky-500/30">
+          <svg class="w-4 h-4 spin-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Actualizar datos
+        </button>
+      </div>
+    </div>
+
+    <div class="p-4 lg:p-8 space-y-6 lg:space-y-8">
+
+      <!-- ========================= EMPTY STATE ========================= -->
+      <section id="empty-state" class="card p-8 max-w-xl mx-auto text-center">
+        <div class="icon-wrap mx-auto mb-4">
+          <svg class="w-7 h-7" fill="none" stroke="#0369A1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </div>
+        <h2 class="text-lg font-bold text-slate-900">El dashboard necesita configuración OData</h2>
+        <p class="text-sm text-slate-500 mt-2">
+          Configura el endpoint OData en Parametrización para cargar los tickets de <strong>ID12086_Tickets_medidor</strong>,
+          o explora la interfaz con datos de ejemplo mientras tanto.
+        </p>
+        <p id="empty-state-error" class="text-sm text-rose-600 mt-2"></p>
+        <div class="flex items-center justify-center gap-3 mt-5 flex-wrap">
+          <button id="btn-abrir-parametrizacion" class="btn-primary">Abrir parametrización</button>
+          <button id="btn-cargar-sample" class="btn-secondary">Cargar datos de ejemplo</button>
+        </div>
+      </section>
+
+      <!-- ========================= VIEWS ========================= -->
+      <div id="views-root" style="display:none;">
+
+      <!-- ========================= RESUMEN ========================= -->
+      <div id="resumen-content" class="view active">
+
+        <!-- Filtros -->
+        <div class="card p-4 mb-6 flex flex-wrap items-end gap-3">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-resumen-desde">Rango de fechas (desde)</label>
+            <input type="date" id="filter-resumen-desde" class="filter-select input-base" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-resumen-hasta">Rango de fechas (hasta)</label>
+            <input type="date" id="filter-resumen-hasta" class="filter-select input-base" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-resumen-periodo">Periodos</label>
+            <select id="filter-resumen-periodo" class="filter-select"><option value="all">Todos los periodos</option></select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-resumen-proceso">Proceso</label>
+            <select id="filter-resumen-proceso" class="filter-select"><option value="all">Todos los procesos</option></select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-resumen-producto">Producto</label>
+            <select id="filter-resumen-producto" class="filter-select"><option value="all">Todos los productos</option></select>
+          </div>
+        </div>
+
+        <!-- KPIs con sparkline (buildResumen().cards) -->
+        <div id="kpi-row" class="card-loading-target grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"></div>
+
+        <!-- Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Top 10 Clientes con Tickets</h3>
+            <div class="chart-box-tall"><canvas id="chart-resumen-top-clientes"></canvas></div>
+          </div>
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Top Recursos - Segundo Nivel de Atención</h3>
+            <div class="chart-box-tall"><canvas id="chart-resumen-top-recursos-sn"></canvas></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ========================= CAPACIDAD Y RENDIMIENTO ========================= -->
+      <div id="capacidad-content" class="view">
+
+        <!-- Filtros -->
+        <div class="card p-4 mb-6 flex flex-wrap items-end gap-3">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-cap-desde">Desde</label>
+            <input type="date" id="filter-cap-desde" class="filter-select input-base" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-cap-hasta">Hasta</label>
+            <input type="date" id="filter-cap-hasta" class="filter-select input-base" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" id="filter-cap-recursos-label">Recursos</label>
+            <div class="multi-select" id="filter-cap-recursos">
+              <button type="button" class="filter-select multi-select-trigger" id="filter-cap-recursos-trigger" aria-haspopup="listbox" aria-expanded="false">Seleccionar uno o varios recursos...</button>
+              <div class="multi-select-panel" id="filter-cap-recursos-panel" role="listbox" hidden>
+                <label class="multi-select-option multi-select-all">
+                  <input type="checkbox" id="filter-cap-recursos-all" checked /> Todos
+                </label>
+                <div class="multi-select-list" id="filter-cap-recursos-list"></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-cap-cliente">Cliente</label>
+            <select id="filter-cap-cliente" class="filter-select"><option value="all">Todos los clientes</option></select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-cap-proyecto">Proyecto</label>
+            <select id="filter-cap-proyecto" class="filter-select"><option value="all">Todos los proyectos</option></select>
+          </div>
+          <div>
+            <button id="btn-cap-limpiar" class="btn-secondary">Limpiar</button>
+          </div>
+          <p class="text-[11px] text-amber-700 basis-full" id="filter-cap-cliente-help" hidden>
+            La plantilla OData no incluye la columna Cliente. Agréguela en la plataforma para habilitar este filtro.
+          </p>
+        </div>
+
+        <!-- Aviso no bloqueante: alguna fuente extra (Tarea/Tarea con Revisión/
+             Seguimiento Cliente/Capacitación) falló al cargar -- ver
+             capacidad-multi-fuente-odata.md, sección "Degradation". -->
+        <div id="cap-extra-sources-notice" class="card p-3 mb-4 border border-amber-200 bg-amber-50 text-amber-800 text-[12px] flex items-start justify-between gap-3" hidden>
+          <span id="cap-extra-sources-notice-text"></span>
+          <button type="button" id="cap-extra-sources-notice-close" class="text-amber-700 hover:text-amber-900 font-bold leading-none" aria-label="Cerrar aviso">&times;</button>
+        </div>
+
+        <!-- KPIs -->
+        <div id="kpi-row-capacidad" class="card-loading-target grid grid-cols-2 lg:grid-cols-4 gap-4 mb-2"></div>
+        <p class="text-[11px] text-slate-500 mb-6" id="semaforo-legend"></p>
+
+        <!-- Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Ocupación por recurso</h3>
+            <div class="chart-box-legend"><canvas id="chart-cap-ocupacion"></canvas></div>
+          </div>
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3" id="chart-cap-proyecto-title">Consumo por Proyecto (Global)</h3>
+            <div class="chart-box-legend"><canvas id="chart-cap-proyecto"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Tacómetros individuales — filtros LOCALES, independientes de los
+             filtros principales de arriba (recursos/cliente/proyecto/período). -->
+        <div class="card p-4 mb-3 flex flex-wrap items-end gap-3">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-cap-gauge-recurso">Seleccionar recurso</label>
+            <select id="filter-cap-gauge-recurso" class="filter-select" style="min-width:260px;"></select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-cap-gauge-desde">Desde</label>
+            <input type="date" id="filter-cap-gauge-desde" class="filter-select input-base" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-cap-gauge-hasta">Hasta</label>
+            <input type="date" id="filter-cap-gauge-hasta" class="filter-select input-base" />
+          </div>
+          <p class="text-[11px] text-slate-500 basis-full" id="gauge-local-period-hint"></p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Horas Programadas por Recurso</h3>
+            <div class="chart-box gauge-wrap">
+              <canvas id="chart-gauge-programado"></canvas>
+              <div class="gauge-center"><span class="val" id="gauge-programado-value">—</span><span class="lbl" id="gauge-programado-label">Sin datos</span></div>
+            </div>
+            <p class="text-[11px] text-slate-500 text-center mt-2" id="gauge-programado-footer"></p>
+          </div>
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Tiempo Real de Soporte vs Programado</h3>
+            <div class="chart-box gauge-wrap">
+              <canvas id="chart-gauge-tiemporeal"></canvas>
+              <div class="gauge-center"><span class="val" id="gauge-tiemporeal-value">—</span><span class="lbl" id="gauge-tiemporeal-label">Sin datos</span></div>
+            </div>
+            <p class="text-[11px] text-slate-500 text-center mt-2" id="gauge-tiemporeal-footer"></p>
+          </div>
+        </div>
+
+        <!-- Tabla: Detalle por recurso -->
+        <div class="card p-5 card-loading-target">
+          <h3 class="text-sm font-bold text-slate-800 mb-3">Detalle por recurso</h3>
+          <div class="overflow-x-auto">
+            <table class="tickets-table">
+              <thead id="table-capacidad-head"></thead>
+              <tbody id="table-capacidad-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Drill-down "Analizar": un único modal, reutilizado y re-llenado
+             en cada apertura (spec v4 — reemplaza el acordeón inline). -->
+        <div id="drilldown-backdrop" hidden></div>
+        <div id="drilldown-modal" role="dialog" aria-modal="true" aria-labelledby="drilldown-modal-title" hidden>
+          <div class="drilldown-modal-header">
+            <div>
+              <h2 id="drilldown-modal-title" class="drilldown-modal-title"></h2>
+              <p id="drilldown-modal-subtitle" class="drilldown-modal-subtitle"></p>
+            </div>
+            <button type="button" id="drilldown-modal-close" class="drilldown-modal-close" aria-label="Cerrar">✕</button>
+          </div>
+          <div class="drilldown-modal-body">
+            <div class="overflow-x-auto">
+              <table class="tickets-table drilldown-table">
+                <thead id="drilldown-modal-head"></thead>
+                <tbody id="drilldown-modal-body"></tbody>
+                <tfoot id="drilldown-modal-foot"></tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ========================= TICKETS ACTIVOS ========================= -->
+      <div id="activos-content" class="view">
+
+        <!-- Filtros -->
+        <div class="card p-4 mb-6 flex flex-wrap items-end gap-3">
+          <!-- Recurso_Accion siempre existe (todo gráfico de esta vista ya lo usa),
+               así que a diferencia de Requerimientos este bloque nunca se oculta. -->
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" id="filter-act-recurso-label">Recurso</label>
+            <div class="multi-select" id="filter-act-recurso">
+              <button type="button" class="filter-select multi-select-trigger" id="filter-act-recurso-trigger" aria-haspopup="listbox" aria-expanded="false">Seleccionar uno o varios recursos...</button>
+              <div class="multi-select-panel" id="filter-act-recurso-panel" role="listbox" hidden>
+                <input type="text" id="filter-act-recurso-search" class="multi-select-search" placeholder="Buscar..." />
+                <label class="multi-select-option multi-select-all">
+                  <input type="checkbox" id="filter-act-recurso-all" checked /> Todos
+                </label>
+                <div class="multi-select-list" id="filter-act-recurso-list"></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-soporte-desde">Fecha Soporte Inicial (desde)</label>
+            <input type="date" id="filter-act-soporte-desde" class="filter-select input-base" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-soporte-hasta">Fecha Soporte Inicial (hasta)</label>
+            <input type="date" id="filter-act-soporte-hasta" class="filter-select input-base" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-entrega-desde">Fecha Entrega Inicial (desde)</label>
+            <input type="date" id="filter-act-entrega-desde" class="filter-select input-base" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-entrega-hasta">Fecha Entrega Inicial (hasta)</label>
+            <input type="date" id="filter-act-entrega-hasta" class="filter-select input-base" />
+          </div>
+          <!-- Oculto por completo cuando la plantilla OData no trae la columna
+               Requerimiento_Opcion (ver hasRequerimiento en buildActivos) -- misma
+               degradación elegante que la columna Cliente en Capacidad. -->
+          <div id="filter-act-requerimientos-wrap" hidden>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" id="filter-act-requerimientos-label">Requerimientos / Opciones</label>
+            <div class="multi-select" id="filter-act-requerimientos">
+              <button type="button" class="filter-select multi-select-trigger" id="filter-act-requerimientos-trigger" aria-haspopup="listbox" aria-expanded="false">Seleccionar uno o varios...</button>
+              <div class="multi-select-panel" id="filter-act-requerimientos-panel" role="listbox" hidden>
+                <input type="text" id="filter-act-requerimientos-search" class="multi-select-search" placeholder="Buscar..." />
+                <label class="multi-select-option multi-select-all">
+                  <input type="checkbox" id="filter-act-requerimientos-all" checked /> Todos
+                </label>
+                <div class="multi-select-list" id="filter-act-requerimientos-list"></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <button id="btn-act-limpiar" class="btn-secondary">Limpiar</button>
+          </div>
+        </div>
+
+        <!-- KPIs -->
+        <div id="kpi-row-activos" class="card-loading-target grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"></div>
+
+        <!-- Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Tickets Abiertos por Recurso (Servicios)</h3>
+            <div class="chart-box-tall"><canvas id="chart-act-recursos-servicios"></canvas></div>
+          </div>
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Recuento de Tickets por Cliente</h3>
+            <div class="chart-box-tall chart-scroll"><div class="chart-scroll-inner"><canvas id="chart-act-cliente"></canvas></div></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Tickets Abiertos por Acción (General)</h3>
+            <div class="chart-box-tall"><canvas id="chart-act-accion-general"></canvas></div>
+          </div>
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Distribución de Tickets por Producto</h3>
+            <div class="chart-box-legend"><canvas id="chart-act-producto"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Tabla (paginada) + panel de resumen del recurso seleccionado --
+             clic en una barra de "Tickets Abiertos por Recurso (Servicios)"
+             arriba narrows ambos. -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <div class="card p-5 lg:col-span-2 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Requerimientos de Primer Nivel</h3>
+            <div class="overflow-x-auto">
+              <table class="tickets-table">
+                <thead id="table-act-head"></thead>
+                <tbody id="table-act-body"></tbody>
+              </table>
+            </div>
+            <div class="flex items-center justify-between mt-3 text-[12px] text-slate-500">
+              <span id="act-table-page-label">Mostrando 0 de 0</span>
+              <div class="flex items-center gap-2">
+                <button type="button" id="act-table-prev" class="btn-secondary" disabled>Anterior</button>
+                <button type="button" id="act-table-next" class="btn-secondary" disabled>Siguiente</button>
+              </div>
+            </div>
+          </div>
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Detalle del recurso seleccionado</h3>
+            <div id="act-resumen-panel"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ========================= SEGUNDO NIVEL DE ATENCIÓN ========================= -->
+      <div id="segundo-nivel-content" class="view">
+
+        <!-- Filtros -->
+        <div class="card p-4 mb-6 flex flex-wrap items-end gap-3">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" id="filter-sn-recursos-label">Recurso</label>
+            <div class="multi-select" id="filter-sn-recursos">
+              <button type="button" class="filter-select multi-select-trigger" id="filter-sn-recursos-trigger" aria-haspopup="listbox" aria-expanded="false">Seleccionar uno o varios recursos...</button>
+              <div class="multi-select-panel" id="filter-sn-recursos-panel" role="listbox" hidden>
+                <label class="multi-select-option multi-select-all">
+                  <input type="checkbox" id="filter-sn-recursos-all" checked /> Todos
+                </label>
+                <div class="multi-select-list" id="filter-sn-recursos-list"></div>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-sn-accion">Accion</label>
+            <select id="filter-sn-accion" class="filter-select"><option value="all">Todas</option></select>
+          </div>
+          <div>
+            <button id="btn-sn-limpiar" class="btn-secondary">Limpiar</button>
+          </div>
+        </div>
+
+        <!-- KPI (un único card: total de requerimientos en el universo filtrado) -->
+        <div id="kpi-row-segundo-nivel" class="card-loading-target grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6"></div>
+
+        <!-- Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Requerimientos por Recurso</h3>
+            <div class="chart-box-tall"><canvas id="chart-sn-recurso"></canvas></div>
+          </div>
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Requerimientos por Cliente (Top 10)</h3>
+            <div class="chart-box-tall chart-scroll"><div class="chart-scroll-inner"><canvas id="chart-sn-cliente"></canvas></div></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Distribución por Diagnóstico</h3>
+            <div class="chart-box-legend"><canvas id="chart-sn-diagnostico"></canvas></div>
+          </div>
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Distribución por Producto</h3>
+            <div class="chart-box-legend"><canvas id="chart-sn-producto"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Tabla + panel de insight -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <div class="card p-5 lg:col-span-2 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Requerimientos de Segundo Nivel</h3>
+            <div class="overflow-x-auto">
+              <table class="tickets-table">
+                <thead id="table-segundo-nivel-head"></thead>
+                <tbody id="table-segundo-nivel-body"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card p-5 card-loading-target">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Detalle del recurso seleccionado</h3>
+            <div id="sn-insight-panel"></div>
+          </div>
+        </div>
+
+      </div>
+
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="assets/js/store.js"></script>
+<script src="assets/js/mapper.js"></script>
+<script src="assets/js/odata-client.js"></script>
+<script src="assets/js/data-sources.js"></script>
+<script src="assets/js/charts.js"></script>
+<script src="assets/js/render.js"></script>
+<script src="assets/js/parametrizacion.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

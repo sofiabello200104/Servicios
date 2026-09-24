@@ -1,0 +1,177 @@
+:root{
+  --bg:#F1F5F9; --panel:#FFFFFF; --ink:#0F172A; --ink-soft:#475569; --ink-mute:#94A3B8;
+  --brand:#0EA5E9; --brand-deep:#0369A1; --brand-soft:#E0F2FE;
+  --ok:#10B981; --warn:#F59E0B; --bad:#EF4444; --violet:#8B5CF6;
+  --line:#E2E8F0;
+}
+html,body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+
+/* ===== Sidebar ===== */
+.sidebar{background:linear-gradient(180deg,#0B1220 0%,#0F172A 60%,#111E36 100%);}
+.nav-item{transition:all .18s ease;}
+.nav-item:hover{background:rgba(14,165,233,.10);color:#fff;}
+.nav-item.active{background:linear-gradient(90deg,rgba(14,165,233,.22),rgba(14,165,233,0));color:#fff;border-left:3px solid #0EA5E9;padding-left:13px;}
+.nav-item.disabled{opacity:.4;cursor:default;pointer-events:none;}
+
+/* ===== Cards / KPIs ===== */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 4px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.08);transition:transform 0.18s ease,box-shadow 0.18s ease;will-change:transform;}
+.card:hover{transform:translateY(-2px);box-shadow:0 4px 8px rgba(15,23,42,.10),0 16px 32px rgba(15,23,42,.12);}
+.kpi-ok{border-top:3px solid var(--ok);}
+.kpi-warn{border-top:3px solid var(--warn);}
+.kpi-bad{border-top:3px solid var(--bad);}
+.chip-mute{background:#F1F5F9;color:#64748B;}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;}
+.chip-ok{background:#DCFCE7;color:#15803D;}
+.chip-warn{background:#FEF3C7;color:#B45309;}
+.chip-bad{background:#FEE2E2;color:#B91C1C;}
+.chip-info{background:#E0F2FE;color:#0369A1;}
+.dot{width:8px;height:8px;border-radius:99px;display:inline-block;}
+.scrollbar::-webkit-scrollbar{width:8px;height:8px;}
+.scrollbar::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:99px;}
+.spark-wrap{position:relative;height:40px;width:100%;}
+.kpi-num{font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+.grad-blue{background:linear-gradient(135deg,#0EA5E9,#0369A1);}
+.pill{padding:4px 10px;border-radius:999px;background:#F1F5F9;color:#475569;font-size:11px;font-weight:600;}
+
+/* ===== Chart containers ===== */
+.chart-box{position:relative;height:280px;width:100%;}
+.chart-box-tall{position:relative;height:340px;width:100%;}
+/* Doughnut with a long bottom legend (top-8 + OTROS) needs extra height. */
+.chart-box-legend{position:relative;height:440px;width:100%;}
+/* Scrollable list-style bar chart: the outer box caps the visible rows and
+   scrolls, the inner box is sized by JS to the full row count so Chart.js
+   (responsive, maintainAspectRatio:false) lays out every bar at full pitch. */
+.chart-scroll{overflow-y:auto;overflow-x:hidden;}
+.chart-scroll-inner{position:relative;width:100%;}
+.chart-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:16px;font-size:12px;color:var(--ink-mute);}
+.gauge-wrap{position:relative;}
+.gauge-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;pointer-events:none;}
+.gauge-center .val{font-size:1.5rem;font-weight:800;color:var(--ink);}
+.gauge-center .lbl{font-size:11px;color:var(--ink-mute);font-weight:600;}
+
+/* ===== Filter row ===== */
+.filter-select{padding:8px 10px;border:1px solid #CBD5E1;border-radius:8px;font-size:13px;background:#fff;color:var(--ink);min-width:180px;}
+.filter-select:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,165,233,.15);}
+input[type="date"].filter-select{min-width:150px;}
+.filter-select:disabled{background:#F1F5F9;color:#94A3B8;cursor:not-allowed;}
+
+/* ===== Recursos multi-select (checkboxes, no library) ===== */
+.multi-select{position:relative;}
+/* Every .card is its own stacking context (will-change:transform), so the
+   card hosting the dropdown must sit above the cards that follow it. */
+.card:has(.multi-select){position:relative;z-index:50;}
+.multi-select-trigger{min-width:220px;text-align:left;cursor:pointer;background:#fff;}
+.multi-select-trigger:hover{border-color:#94A3B8;}
+.multi-select-panel{position:absolute;top:calc(100% + 4px);left:0;z-index:40;background:#fff;border:1px solid #CBD5E1;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.14);max-height:280px;overflow-y:auto;width:280px;padding:6px;}
+.multi-select-option{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;font-size:13px;color:var(--ink);cursor:pointer;}
+.multi-select-option:hover{background:#F1F5F9;}
+.multi-select-all{border-bottom:1px solid #E2E8F0;margin-bottom:4px;padding-bottom:8px;font-weight:600;}
+.multi-select-option input[type="checkbox"]{accent-color:var(--brand);}
+/* Search box inside a multi-select panel (Tickets Activos > Requerimientos) --
+   filters the option list client-side, no extra library. */
+.multi-select-search{width:100%;box-sizing:border-box;padding:6px 8px;margin-bottom:6px;border:1px solid #E2E8F0;border-radius:6px;font-size:12px;}
+.multi-select-search:focus{outline:none;border-color:var(--brand);}
+
+/* ===== Views (Resumen / Capacidad y Rendimiento / Tickets Activos) ===== */
+.view{display:none;}
+.view.active{display:block;}
+
+/* ===== Estado (semáforo) badge — table cell + KPI chip, color set inline from color_badge ===== */
+.cap-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap;}
+
+/* ===== Table: Últimos tickets ===== */
+.tickets-table{width:100%;border-collapse:collapse;font-size:12px;}
+.tickets-table thead tr{border-bottom:2px solid #E2E8F0;}
+.tickets-table thead{position:sticky;top:0;background:#fff;z-index:1;}
+.tickets-table th{padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94A3B8;white-space:nowrap;user-select:none;}
+.tickets-table th:hover{color:#475569;}
+.tickets-table td{padding:8px 10px;border-bottom:1px solid #F1F5F9;color:#334155;vertical-align:middle;}
+.tickets-table tbody tr:last-child td{border-bottom:none;}
+.table-row:hover{background:#F8FAFC;}
+.det-id{font-weight:700;color:#0EA5E9;font-size:11px;font-variant-numeric:tabular-nums;}
+
+/* ===== Detalle por Recurso: "Analizar" button + drill-down table (spec v4) ===== */
+.cap-analizar-btn{background:var(--brand-soft);color:var(--brand-deep);font-weight:600;font-size:11px;padding:5px 10px;border-radius:7px;border:none;cursor:pointer;white-space:nowrap;}
+.cap-analizar-btn:hover{background:#BAE6FD;}
+.cap-analizar-btn:focus-visible{outline:2px solid var(--brand);outline-offset:2px;}
+.drilldown-table{width:100%;border-collapse:collapse;font-size:11px;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+.drilldown-table th{padding:6px 8px;text-align:left;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#94A3B8;white-space:nowrap;border-bottom:1px solid var(--line);}
+.drilldown-table td{padding:6px 8px;color:#334155;border-bottom:1px solid #F1F5F9;vertical-align:top;}
+.drilldown-table tbody tr:last-child td{border-bottom:none;}
+.drilldown-total{text-align:right;font-weight:700;padding:8px 10px;color:var(--ink);background:#F1F5F9;}
+
+/* ===== Detalle por Recurso: drill-down modal (spec v4) — centered dialog,
+   same shadow/radius weight as the #param-panel slide-over but symmetric
+   instead of directional since it opens from the center, not an edge. ===== */
+#drilldown-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:80;display:none;}
+#drilldown-backdrop.show{display:block;}
+#drilldown-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.96);opacity:0;pointer-events:none;width:min(1100px,95vw);max-height:85vh;background:#fff;z-index:85;border-radius:14px;box-shadow:0 20px 60px rgba(15,23,42,.30);display:flex;flex-direction:column;transition:transform .18s ease,opacity .18s ease;}
+#drilldown-modal.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1);}
+.drilldown-modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid var(--line);flex-shrink:0;}
+.drilldown-modal-title{font-size:16px;font-weight:800;color:var(--ink);margin:0;}
+.drilldown-modal-subtitle{font-size:12px;color:var(--ink-mute);margin:4px 0 0;}
+.drilldown-modal-close{width:32px;height:32px;border-radius:8px;background:#F1F5F9;border:none;font-size:14px;color:#475569;cursor:pointer;flex-shrink:0;}
+.drilldown-modal-close:hover{background:#E2E8F0;}
+.drilldown-modal-body{padding:16px 20px 20px;overflow-y:auto;}
+@media (max-width: 640px){
+  #drilldown-modal{width:96vw;max-height:90vh;}
+}
+
+/* ===== Slide-over: Parametrización ===== */
+#param-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:70;display:none;}
+#param-backdrop.show{display:block;}
+#param-panel{position:fixed;top:0;right:0;height:100vh;width:min(480px,95vw);background:#fff;z-index:75;box-shadow:-10px 0 40px rgba(15,23,42,.20);transform:translateX(100%);transition:transform .28s ease;display:flex;flex-direction:column;}
+#param-panel.open{transform:translateX(0);}
+.input-base{width:100%;padding:8px 10px;border:1px solid #CBD5E1;border-radius:8px;font-size:13px;background:#F8FAFC;}
+.input-base:focus{outline:none;border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px rgba(14,165,233,.15);}
+.btn-primary{background:linear-gradient(135deg,#0EA5E9,#0369A1);color:#fff;font-weight:600;padding:8px 14px;border-radius:8px;font-size:13px;display:inline-flex;align-items:center;gap:6px;border:none;cursor:pointer;}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+.btn-secondary{background:#F1F5F9;color:#0F172A;font-weight:600;padding:8px 14px;border-radius:8px;font-size:13px;border:none;cursor:pointer;}
+.btn-secondary:disabled{opacity:.5;cursor:not-allowed;}
+.tag-ok{background:#DCFCE7;color:#15803D;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:600;}
+.tag-warn{background:#FEF3C7;color:#B45309;font-size:10px;padding:2px 7px;border-radius:99px;font-weight:600;}
+
+/* ===== Botón "Actualizar datos": estado de carga ===== */
+.spin-icon{transition:transform .2s ease;}
+#btn-actualizar-datos.is-loading .spin-icon{animation:spin 0.9s linear infinite;}
+#btn-actualizar-datos.is-loading{opacity:.85;cursor:wait;}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+
+/* ===== Boot skeleton / loading state ===== */
+@keyframes skeleton-pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+.card-loading{position:relative;overflow:hidden;background:#E2E8F0 !important;min-height:120px;}
+.card-loading::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 25%,rgba(255,255,255,0.5) 50%,transparent 75%);background-size:200% 100%;animation:skeleton-pulse 1.4s ease-in-out infinite;}
+.card-loading *{visibility:hidden;}
+
+/* ===== Empty state ===== */
+#empty-state .icon-wrap{width:56px;height:56px;border-radius:14px;background:var(--brand-soft);display:flex;align-items:center;justify-content:center;}
+
+/* ===== Responsive ===== */
+#sidebar-backdrop{display:none;}
+#hamburger{display:none;}
+@media (max-width: 1023px){
+  #sidebar{transform:translateX(-100%);transition:transform .28s ease;z-index:60;width:280px;}
+  #sidebar.open{transform:translateX(0);box-shadow:0 0 40px rgba(0,0,0,.4);}
+  #sidebar-backdrop.show{display:block;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:55;}
+  #hamburger{display:inline-flex;}
+  main{margin-left:0 !important;}
+  .topbar-actions .pill{display:none;}
+}
+@media (max-width: 640px){
+  html,body{overflow-x:hidden;}
+  .page-title{font-size:1rem !important;}
+  .crumb{font-size:10px !important;}
+  .card{border-radius:12px;}
+  table{font-size:12px;}
+  .pill{display:none;}
+  .spark-wrap{height:34px;}
+  #topbar{flex-wrap:wrap;row-gap:10px;}
+  .topbar-actions{width:100%;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+  .topbar-actions button{white-space:nowrap;padding:7px 10px;font-size:12px;flex-shrink:0;}
+  .card.p-5{padding:14px;}
+  .text-4xl{font-size:1.75rem;}
+  .text-3xl{font-size:1.5rem;}
+  .chart-box, .chart-box-tall{height:220px;}
+  .chart-box-legend{height:380px;}
+  .filter-select{min-width:0;width:100%;}
+}

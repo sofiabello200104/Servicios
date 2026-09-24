@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const fs=require\\('fs'\\); const data=JSON.parse\\(fs.readFileSync\\('data/sample-tickets.json','utf8'\\)\\); const arr = Array.isArray\\(data\\)?data:\\(data.value||data.d && data.d.results\\)||data; console.log\\(Array.isArray\\(arr\\)?arr.length:'not array'\\); console.log\\(Object.keys\\(Array.isArray\\(arr\\)?arr[0]:data\\)\\);\")",
+      "Bash(node -e ' *)",
+      "Bash(node --check assets/js/mapper.js)",
+      "Bash(node --check assets/js/render.js)",
+      "Bash(node --check assets/js/app.js)",
+      "Bash(node --check assets/js/charts.js)",
+      "Bash(npm test *)",
+      "Bash(npm start *)",
+      "Bash(python \"C:\\\\Users\\\\CABS\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-CABS-Documents-sofia\\\\a63b8523-ec3d-46d0-b4c4-1430c7ee75ba\\\\scratchpad\\\\inspect_xlsx.py\")",
+      "Bash(where python3 *)",
+      "Bash(where py *)",
+      "Bash(py --version)",
+      "Bash(which unzip *)",
+      "Read(//c/Users/CABS/AppData/Local/Programs/**)"
+    ]
+  }
+}

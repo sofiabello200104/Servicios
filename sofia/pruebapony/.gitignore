@@ -1,0 +1,5 @@
+node_modules/
+certs/
+data/users.db
+data/users.db-*
+data/.session-secret

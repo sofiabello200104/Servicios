@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SOFIA — Test Runner</title>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; background: #F8FAFC; color: #0F172A; margin: 0; padding: 20px; }
+  h1   { font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; }
+  #summary { padding: 12px 16px; border-radius: 8px; font-weight: 700; font-size: 1.1rem; margin-bottom: 20px; }
+  #summary.all-pass { background: #DCFCE7; color: #15803D; }
+  #summary.has-fail  { background: #FEE2E2; color: #B91C1C; }
+  .test-case { display: flex; align-items: flex-start; gap: 10px; padding: 6px 10px; border-radius: 6px; margin-bottom: 4px; font-size: 13px; }
+  .test-case.pass { background: #F0FDF4; }
+  .test-case.fail { background: #FEF2F2; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .badge-pass { background: #BBF7D0; color: #15803D; }
+  .badge-fail { background: #FECACA; color: #B91C1C; }
+  .test-name { font-weight: 600; flex: 1; }
+  .test-detail { font-size: 11px; color: #64748B; margin-top: 2px; font-family: monospace; }
+  .test-detail.fail-detail { color: #B91C1C; }
+</style>
+</head>
+<body>
+
+<h1>SOFIA — Test Runner</h1>
+<p style="color:#64748B;font-size:13px;margin-bottom:16px;">Standalone test harness — open directly in browser, no server required.</p>
+
+<div id="summary">Loading...</div>
+<div id="report"></div>
+
+<script>
+// Chart.js stub (must exist BEFORE project scripts load — charts.js reads
+// Chart.defaults at parse time, and mapper.js does not touch it, but
+// loading order is kept consistent with the real app either way).
+window.Chart = (function () {
+  function ChartStub(ctx, cfg) { this._cfg = cfg; }
+  ChartStub.prototype.destroy = function () {};
+  ChartStub.prototype.update = function () {};
+  ChartStub.defaults = { font: { family: '', size: 11 }, color: '', plugins: { tooltip: { cornerRadius: 0 } } };
+  ChartStub.defaults.plugins.legend = { labels: { generateLabels: function () { return []; } } };
+  ChartStub.register = function () {};
+  ChartStub.getChart = function () { return null; };
+  return ChartStub;
+})();
+</script>
+
+<!-- Project scripts: only the pure, DOM-free layer needs testing here -->
+<script src="assets/js/mapper.js"></script>
+
+<script>
+(function () {
+  'use strict';
+  var M = window.SOFIA_MAPPER;
+  var results = [];
+
+  function test(name, fn) {
+    try {
+      fn();
+      results.push({ name: name, pass: true });
+    } catch (err) {
+      results.push({ name: name, pass: false, detail: err.message });
+    }
+  }
+
+  function assertEqual(actual, expected, msg) {
+    var a = JSON.stringify(actual), e = JSON.stringify(expected);
+    if (a !== e) throw new Error((msg ? msg + ' — ' : '') + 'expected ' + e + ' got ' + a);
+  }
+  function assertOk(cond, msg) {
+    if (!cond) throw new Error(msg || 'assertion failed');
+  }
+
+  /* ==================== parseFecha ==================== */
+
+  test('parseFecha parses OData /Date(ms)/ as UTC', function () {
+    var d = M.parseFecha('/Date(1700000000000)/');
+    assertOk(d instanceof Date);
+    assertEqual(d.getTime(), 1700000000000);
+  });
+
+  test('parseFecha parses ISO date-time as UTC', function () {
+    var d = M.parseFecha('2026-03-15T14:30:00');
+    assertEqual(d.getUTCFullYear(), 2026);
+    assertEqual(d.getUTCMonth(), 2);
+    assertEqual(d.getUTCDate(), 15);
+  });
+
+  test('parseFecha parses DD/MM/YYYY as UTC', function () {
+    var d = M.parseFecha('25/12/2025');
+    assertEqual(d.getUTCFullYear(), 2025);
+    assertEqual(d.getUTCMonth(), 11);
+    assertEqual(d.getUTCDate(), 25);
+  });
+
+  test('parseFecha returns null for empty/unparseable input', function () {
+    assertEqual(M.parseFecha(null), null);
+    assertEqual(M.parseFecha(''), null);
+    assertEqual(M.parseFecha('not a date'), null);
+  });
+
+  test('parseFecha does not shift day 1 of month (ISO)', function () {
+    var d = M.parseFecha('2026-01-01T00:00:00');
+    assertEqual(d.getUTCMonth(), 0);
+    assertEqual(d.getUTCDate(), 1);
+  });
+
+  test('parseFecha does not shift day 1 of month (DD/MM/YYYY)', function () {
+    var d = M.parseFecha('01/09/2026');
+    assertEqual(d.getUTCMonth(), 8);
+    assertEqual(d.getUTCDate(), 1);
+  });
+
+  test('monthKey formats a UTC date as YYYY-MM without drift on day 1', function () {
+    var d = M.parseFecha('2026-12-01T00:00:00');
+    assertEqual(M.monthKey(d), '2026-12');
+  });
+
+  /* ==================== Title Case ==================== */
+
+  test('toTitleCase merges duplicate-cased names', function () {
+    var a = M.toTitleCase('PAOLA ANDREA MACIAS ROJAS');
+    var b = M.toTitleCase('Paola Andrea Macias Rojas');
+    assertEqual(a, 'Paola Andrea Macias Rojas');
+    assertEqual(a, b);
+  });
+
+  /* ==================== Priority grouping ==================== */
+
+  test('groupPrioridad groups by leading number+word', function () {
+    assertEqual(M.groupPrioridad('3-Prioritario (Atendido en 16 horas hábiles)'), '3-Prioritario');
+    assertEqual(M.groupPrioridad('10-Visita / Implementación (Programación)'), '10-Visita');
+    assertEqual(M.groupPrioridad('5-Evolutivo/Sugerencia (algo)'), '5-Evolutivo/Sugerencia');
+  });
+
+  test('groupPrioridad falls back to Sin dato for empty input', function () {
+    assertEqual(M.groupPrioridad(''), 'Sin dato');
+    assertEqual(M.groupPrioridad(null), 'Sin dato');
+  });
+
+  /* ==================== normalizeTickets ==================== */
+
+  test('normalizeTickets fills empty/null fields with Sin dato', function () {
+    var rows = [{ ID: 1, Fecha: '2026-03-01T00:00:00', Accion: 'CIERRE', Producto: '', Proceso: '', Recurso_Soporte: '', Prioridad_del_Servicio_ANS: '' }];
+    var t = M.normalizeTickets(rows)[0];
+    assertEqual(t.producto, 'Sin dato');
+    assertEqual(t.proceso, 'Sin dato');
+    assertEqual(t.prioridad, 'Sin dato');
+  });
+
+  test('normalizeTickets Title-Cases Recurso_Soporte so duplicates merge', function () {
+    var rows = [
+      { ID: 1, Fecha: '2026-01-05T00:00:00', Accion: 'CIERRE', Recurso_Soporte: 'PAOLA ANDREA MACIAS ROJAS' },
+      { ID: 2, Fecha: '2026-01-06T00:00:00', Accion: 'CIERRE', Recurso_Soporte: 'Paola Andrea Macias Rojas' }
+    ];
+    var tickets = M.normalizeTickets(rows);
+    assertEqual(tickets[0].recursoSoporte, tickets[1].recursoSoporte);
+  });
+
+  /* ==================== buildResumen (rediseño) ==================== */
+
+  function resumenFixtureTickets() {
+    var rows = [
+      { ID: 1, Fecha: '2026-01-05T00:00:00', Accion: 'CIERRE',           Producto: 'NOMINA WEB',       Proceso: 'Mantenimiento',   Recurso_Soporte: 'Ana Perez',   Estado: '1', Cliente: 'Cliente A' },
+      { ID: 2, Fecha: '2026-01-10T00:00:00', Accion: 'REALIZAR',         Producto: 'NOMINA WEB',       Proceso: 'Mantenimiento',   Recurso_Soporte: 'Ana Perez',   Estado: '1', Cliente: 'Cliente A' },
+      { ID: 3, Fecha: '2026-02-01T00:00:00', Accion: 'REVISION CALIDAD', Producto: 'CONTABILIDAD WEB', Proceso: 'Implementación', Recurso_Soporte: 'Luis Gomez',  Estado: '1', Cliente: 'Cliente B' },
+      { ID: 4, Fecha: '2026-02-15T00:00:00', Accion: 'REVISION EN PLANTA', Producto: 'CONTABILIDAD WEB', Proceso: 'Implementación', Recurso_Soporte: 'Luis Gomez', Estado: '2', Cliente: 'Cliente B' },
+      { ID: 5, Fecha: '2026-02-20T00:00:00', Accion: 'ACTUALIZAR VERSION', Producto: 'PRESUPUESTO WEB', Proceso: 'Mantenimiento', Recurso_Soporte: 'Maria Lopez', Estado: '1', Cliente: 'Cliente A' },
+      { ID: 6, Fecha: '2026-03-01T00:00:00', Accion: 'REVISION DEV',     Producto: 'NOMINA WEB',       Proceso: 'Implementación', Recurso_Soporte: 'Maria Lopez', Estado: '1', Cliente: 'Cliente C' },
+      { ID: 7, Fecha: '2026-03-05T00:00:00', Accion: 'REVISION SOLUCION', Producto: 'NOMINA WEB',      Proceso: 'Implementación', Recurso_Soporte: 'Luis Gomez',  Estado: '2', Cliente: 'Cliente D' }
+    ];
+    return M.normalizeTickets(rows);
+  }
+
+  test('buildResumen cards: activos/calidad/implementacion/mantenimiento with exact conditions', function () {
+    var resumen = M.buildResumen(resumenFixtureTickets(), {});
+    var byId = {};
+    resumen.cards.forEach(function (c) { byId[c.id] = c; });
+    assertEqual(byId.activos.count, 5);
+    assertEqual(byId.calidad.count, 5);
+    assertEqual(byId.implementacion.count, 4);
+    assertEqual(byId.mantenimiento.count, 3);
+  });
+
+  test('buildResumen calidad card applies only its own condition (not estado===1)', function () {
+    var resumen = M.buildResumen(resumenFixtureTickets(), {});
+    var calidad = resumen.cards.filter(function (c) { return c.id === 'calidad'; })[0];
+    assertEqual(calidad.count, 5);
+  });
+
+  test('buildResumen combines Rango de Fechas + Periodo + Proceso + Producto filters with AND', function () {
+    var tickets = resumenFixtureTickets();
+    var byPeriodo = M.buildResumen(tickets, { periodo: '2026-02' });
+    assertEqual(byPeriodo.cards.filter(function (c) { return c.id === 'activos'; })[0].count, 2);
+    var byProcesoProducto = M.buildResumen(tickets, { proceso: 'Mantenimiento', producto: 'NOMINA WEB' });
+    assertEqual(byProcesoProducto.cards.filter(function (c) { return c.id === 'activos'; })[0].count, 2);
+  });
+
+  test('buildResumen topClientes: top 10 by cliente with counts', function () {
+    var resumen = M.buildResumen(resumenFixtureTickets(), {});
+    var byLabel = {};
+    resumen.topClientes.forEach(function (c) { byLabel[c.label] = c.count; });
+    assertEqual(byLabel['CLIENTE A'], 3);
+    assertEqual(byLabel['CLIENTE B'], 2);
+    assertOk(resumen.hasCliente);
+  });
+
+  test('buildResumen topRecursosSegundoNivel: dimension recursoSoporte, filtered to SEGUNDO_NIVEL_ACCIONES', function () {
+    var resumen = M.buildResumen(resumenFixtureTickets(), {});
+    var byLabel = {};
+    resumen.topRecursosSegundoNivel.forEach(function (r) { byLabel[r.label] = r.count; });
+    assertEqual(byLabel['Luis Gomez'], 2);
+    assertEqual(byLabel['Maria Lopez'], 2);
+  });
+
+  /* ==================== Render report ==================== */
+
+  var passCount = results.filter(function (r) { return r.pass; }).length;
+  var failCount = results.length - passCount;
+
+  var summary = document.getElementById('summary');
+  summary.className = failCount === 0 ? 'all-pass' : 'has-fail';
+  summary.textContent = passCount + '/' + results.length + ' tests passed' + (failCount ? ' — ' + failCount + ' failing' : '');
+
+  var report = document.getElementById('report');
+  report.innerHTML = results.map(function (r) {
+    return '<div class="test-case ' + (r.pass ? 'pass' : 'fail') + '">' +
+      '<span class="badge ' + (r.pass ? 'badge-pass' : 'badge-fail') + '">' + (r.pass ? 'PASS' : 'FAIL') + '</span>' +
+      '<div><div class="test-name">' + r.name + '</div>' +
+      (r.detail ? '<div class="test-detail fail-detail">' + r.detail + '</div>' : '') +
+      '</div></div>';
+  }).join('');
+})();
+</script>
+
+</body>
+</html>

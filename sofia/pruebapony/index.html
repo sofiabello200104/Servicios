@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SICSS · Cuadro de Mando Integral 2026</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/css/app.css" />
+</head>
+<body class="min-h-screen">
+
+<div class="flex min-h-screen">
+
+  <div id="sidebar-backdrop"></div>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="sidebar w-64 text-slate-300 flex flex-col fixed h-screen">
+    <div class="px-5 py-5 border-b border-white/5">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl grad-blue flex items-center justify-center font-bold text-white shadow-lg shadow-sky-500/30">S</div>
+        <div>
+          <div class="text-white font-bold leading-none">SICSS</div>
+          <div class="text-[11px] text-slate-400 mt-1">Cuadro de Mando · 2026</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="flex-1 py-3 px-2 scrollbar overflow-y-auto">
+      <div class="text-[10px] uppercase tracking-wider text-slate-500 px-3 py-2">Vistas</div>
+      <a data-view="exec" class="nav-item active flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2 4 4 8-8 4 4"/></svg>
+        OKR
+      </a>
+
+      <div class="text-[10px] uppercase tracking-wider text-slate-500 px-3 pt-4 pb-2">Áreas</div>
+      <a data-view="comercial" data-view-target="comercial" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <span class="dot bg-sky-400"></span>Dirección Comercial
+      </a>
+      <a data-view="financiera" data-view-target="financiera" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <span class="dot bg-emerald-400"></span>Gestión Adm. y Fin.
+      </a>
+      <a data-view="proyectos" data-view-target="proyectos" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <span class="dot bg-amber-400"></span>Proyectos
+      </a>
+      <a data-view="soluciones" data-view-target="soluciones" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <span class="dot bg-violet-400"></span>Soluciones
+      </a>
+      <a data-view="ids" data-view-target="ids" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <span class="dot bg-pink-400"></span>IDS
+      </a>
+
+      <div class="text-[10px] uppercase tracking-wider text-slate-500 px-3 pt-5 pb-2">Configuración</div>
+      <a data-view="filtros" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M6 12h12M10 18h4"/></svg>
+        Parámetros
+      </a>
+      <a data-view="admin" id="nav-admin" style="display:none;" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+        Usuarios
+      </a>
+
+      <!-- ── Filtros rápidos ── -->
+      <div style="margin-top:18px;padding:0 8px 12px;">
+        <div class="text-[10px] uppercase tracking-wider text-slate-500 px-1 pb-3">Filtros</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+
+          <div>
+            <label class="sf-label" for="sf-responsable">Responsable</label>
+            <select id="sf-responsable" class="sf-select">
+              <option value="todos">Todos</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="sf-label" for="sf-trimestre">Trimestre</label>
+            <select id="sf-trimestre" class="sf-select">
+              <option value="ytd">Acumulado YTD</option>
+              <option value="q1">Q1</option>
+              <option value="q2">Q2</option>
+              <option value="q3">Q3</option>
+              <option value="q4">Q4</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="sf-label" for="sf-mes">Mes corte</label>
+            <select id="sf-mes" class="sf-select" disabled>
+              <option value="">—</option>
+            </select>
+          </div>
+
+          <button id="sf-clear" class="sf-clear">Limpiar</button>
+        </div>
+      </div>
+    </nav>
+
+    <div class="px-5 py-3 border-t border-white/5 text-[11px] text-slate-400">
+      <div class="flex items-center justify-between">
+        <span>Actualizado</span>
+        <span id="sidebar-updated-at" class="text-slate-300 font-medium">Sin datos aún</span>
+      </div>
+      <div class="mt-1 text-slate-500">v0.2 · OData edition</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="lg:ml-64 flex-1 min-h-screen w-full">
+
+    <!-- TOPBAR -->
+    <div id="topbar" class="bg-white border-b border-slate-200 px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between sticky top-0 z-30 gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <button id="hamburger" class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 text-slate-700 active:bg-slate-200 shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="min-w-0">
+          <div class="text-[12px] text-slate-500 uppercase tracking-wider crumb truncate" id="crumb">Panel Ejecutivo</div>
+          <h1 class="text-base lg:text-xl font-bold text-slate-900 mt-0.5 page-title truncate" id="page-title">OKR 2026</h1>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 topbar-actions shrink-0">
+        <span class="pill">Periodo: Ene - Dic 2026</span>
+        <button id="btn-parametrizacion" style="display:none;" class="px-3 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Parametrización
+        </button>
+        <button class="px-3 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+          Exportar PDF
+        </button>
+        <button id="btn-actualizar-datos" class="px-3 py-2 text-sm font-medium text-white grad-blue rounded-lg flex items-center gap-2 shadow shadow-sky-500/30">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Actualizar datos
+        </button>
+        <button class="px-3 py-2 text-sm font-medium text-white grad-blue rounded-lg flex items-center gap-2 shadow shadow-sky-500/30">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m9.032 4.026a3 3 0 10-5.464-2.684 3 3 0 005.464 2.684zm0-9.368a3 3 0 10-5.464 2.684 3 3 0 005.464-2.684z"/></svg>
+          Compartir
+        </button>
+      </div>
+    </div>
+
+    <div class="p-4 lg:p-8 space-y-6 lg:space-y-8">
+
+      <!-- ========================= VIEW: RESUMEN EJECUTIVO ========================= -->
+      <section class="view active" id="view-exec">
+
+        <div class="flex justify-end mb-3">
+          <span class="text-xs text-slate-500">Actualizado: <span id="updated-at-exec" class="font-semibold text-slate-700">Sin datos aún</span></span>
+        </div>
+
+        <!-- KPI tiles -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Cumplimiento Global</div>
+              <div class="grad-blue w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold">%</div>
+            </div>
+            <div class="text-4xl font-extrabold mt-3 kpi-num" id="exec-global">—<span class="text-2xl text-slate-400">%</span></div>
+            <div class="text-xs text-slate-400 font-semibold mt-1" id="exec-global-var">Sin datos OData</div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">KPIs cumplidos</div>
+              <span class="dot bg-emerald-500"></span>
+            </div>
+            <div class="text-4xl font-extrabold mt-3 kpi-num text-emerald-600" id="exec-count-ok">—</div>
+            <div class="text-xs text-slate-500 mt-1">de 18 indicadores</div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">En riesgo</div>
+              <span class="dot bg-amber-500"></span>
+            </div>
+            <div class="text-4xl font-extrabold mt-3 kpi-num text-amber-600" id="exec-count-warn">—</div>
+            <div class="text-xs text-slate-500 mt-1">requieren atención</div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">No cumplidos</div>
+              <span class="dot bg-rose-500"></span>
+            </div>
+            <div class="text-4xl font-extrabold mt-3 kpi-num text-rose-600" id="exec-count-bad">—</div>
+            <div class="text-xs text-slate-500 mt-1">acción inmediata</div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Tendencia YTD</div>
+              <svg class="w-4 h-4 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+            </div>
+            <div class="exec-spark-wrap mt-3"><canvas id="exec-spark"></canvas></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Cumplimiento por Área</h3>
+                <p class="text-xs text-slate-500">Avance ponderado YTD vs meta del periodo</p>
+              </div>
+              <span class="chip chip-info">YTD 2026</span>
+            </div>
+            <div class="mt-4" style="height:280px;"><canvas id="exec-areas"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-slate-800">Estado de los KPIs</h3>
+              <span class="chip chip-info">18 total</span>
+            </div>
+            <div class="mt-4 relative" style="height:280px;"><canvas id="exec-donut"></canvas></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Cumplimiento Global en el Tiempo</h3>
+                <p class="text-xs text-slate-500">Promedio ponderado mensual de los 18 indicadores</p>
+              </div>
+              <div class="flex gap-2">
+                <span class="chip chip-ok"><span class="dot bg-emerald-500"></span>Real</span>
+                <span class="chip chip-info"><span class="dot bg-sky-500"></span>Meta</span>
+              </div>
+            </div>
+            <div class="mt-4" style="height:280px;"><canvas id="exec-line"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Top desempeño</h3>
+            <p class="text-xs text-slate-500 mb-3">5 mejores indicadores YTD</p>
+            <div class="space-y-2" id="exec-top"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Indicadores a mejorar</h3>
+            <p class="text-xs text-slate-500 mb-3">Requieren plan de acción inmediato</p>
+            <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[480px]">
+              <thead>
+                <tr class="text-left text-xs text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                  <th class="py-2">Indicador</th><th class="py-2">Área</th><th class="py-2 text-right">Avance</th><th class="py-2 text-right">Meta</th><th class="py-2"></th>
+                </tr>
+              </thead>
+              <tbody id="exec-bottom"></tbody>
+            </table>
+            </div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Mapa estratégico — Perspectivas</h3>
+            <p class="text-xs text-slate-500 mb-3">Cumplimiento ponderado por perspectiva BSC</p>
+            <div style="height:260px;"><canvas id="exec-radar"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================= VIEW: DIRECCION COMERCIAL ========================= -->
+      <section class="view" id="view-comercial">
+        <div class="flex justify-end mb-2">
+          <span class="text-xs text-slate-500">Actualizado: <span id="updated-at-comercial" class="font-semibold text-slate-700">Sin datos aún</span></span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 card-loading" id="cards-comercial"></div>
+
+        <div class="card p-5 mt-6" id="com-acum-card">
+          <div class="flex items-start justify-between flex-wrap gap-3">
+            <div>
+              <h3 class="font-semibold text-slate-800">Acumulado vs Meta anual</h3>
+              <p id="com-acum-sub" class="text-xs text-slate-500">Ingresos totales acumulados contra meta de $13.804,8M</p>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+              <button class="acum-kpi-btn acum-kpi-todos acum-kpi-active" data-kpi="todos">Todos</button>
+              <button class="acum-kpi-btn acum-kpi-nuevos" data-kpi="nuevos">Ingresos Nuevos</button>
+              <button class="acum-kpi-btn acum-kpi-cruzada" data-kpi="cruzada">Venta Cruzada</button>
+              <button class="acum-kpi-btn acum-kpi-renovaciones" data-kpi="renovaciones">Renovaciones</button>
+              <button class="acum-kpi-btn acum-kpi-greenywave" data-kpi="greenywave">Greenywave</button>
+            </div>
+          </div>
+          <div class="mt-4" style="height:280px;"><canvas id="com-acum"></canvas></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 id="com-stack-title" class="font-semibold text-slate-800">Ingresos mensuales por línea</h3>
+                <p class="text-xs text-slate-500">Nuevos, venta cruzada, renovaciones y Greenywave (millones COP)</p>
+              </div>
+              <span id="com-stack-period" class="chip chip-info">Ene – Dic 2026</span>
+            </div>
+            <div class="mt-4" style="height:320px;"><canvas id="com-stack"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 id="com-donut-title" class="font-semibold text-slate-800">Mix de ingresos YTD</h3>
+            <p id="com-donut-sub" class="text-xs text-slate-500">Distribución acumulada por línea</p>
+            <div class="mt-4" style="height:230px;"><canvas id="com-donut"></canvas></div>
+            <div class="mt-3 text-center text-xs text-slate-500"><span id="com-total-label">Total YTD</span>: <span class="font-bold text-slate-800" id="com-total"></span></div>
+          </div>
+        </div>
+
+        <!-- ── Detalle de actividades comerciales ── -->
+        <div class="card p-5 mt-6" id="com-detalle-card" style="display:none;">
+          <div id="com-detalle"></div>
+        </div>
+
+        <!-- Pipeline Funnel -->
+        <div class="card p-5 mt-6" id="com-pipeline-card" style="display:none;">
+          <div id="com-pipeline"></div>
+        </div>
+      </section>
+
+      <!-- ========================= VIEW: GESTION ADM FIN ========================= -->
+      <section class="view" id="view-financiera">
+        <div class="flex justify-end mb-2">
+          <span class="text-xs text-slate-500">Actualizado: <span id="updated-at-financiera" class="font-semibold text-slate-700">Sin datos aún</span></span>
+        </div>
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 card-loading" id="cards-financiera"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Márgenes financieros mensuales</h3>
+                <p class="text-xs text-slate-500">EBITDA, utilidad operacional y utilidad bruta vs meta</p>
+              </div>
+              <div class="flex gap-2">
+                <span class="chip chip-info"><span class="dot bg-sky-500"></span>EBITDA</span>
+                <span class="chip chip-info"><span class="dot bg-emerald-500"></span>Op.</span>
+                <span class="chip chip-info"><span class="dot bg-violet-500"></span>Bruta</span>
+              </div>
+            </div>
+            <div class="mt-4" style="height:320px;"><canvas id="fin-margenes"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Facturación vs Recaudo</h3>
+            <p class="text-xs text-slate-500">Cumplimiento YTD vs meta</p>
+            <div class="mt-4 space-y-5">
+              <div id="fin-bar-facturacion">
+                <div class="flex justify-between text-sm"><span class="text-slate-600">Facturación</span><span class="font-bold text-slate-800 fin-bar-pct">—</span></div>
+                <div class="h-3 bg-slate-100 rounded-full mt-1 overflow-hidden"><div class="h-full grad-blue fin-bar-fill" style="width:0%"></div></div>
+                <div class="text-[11px] text-slate-500 mt-1">Meta ≥ 95% · <span class="fin-bar-status font-semibold"></span></div>
+              </div>
+              <div id="fin-bar-recaudo">
+                <div class="flex justify-between text-sm"><span class="text-slate-600">Recaudo</span><span class="font-bold text-slate-800 fin-bar-pct">—</span></div>
+                <div class="h-3 bg-slate-100 rounded-full mt-1 overflow-hidden"><div class="h-full grad-green fin-bar-fill" style="width:0%"></div></div>
+                <div class="text-[11px] text-slate-500 mt-1">Meta ≥ 90% · <span class="fin-bar-status font-semibold"></span></div>
+              </div>
+              <div id="fin-bar-personal">
+                <div class="flex justify-between text-sm"><span class="text-slate-600">Personal Competente</span><span class="font-bold text-slate-800 fin-bar-pct">—</span></div>
+                <div class="h-3 bg-slate-100 rounded-full mt-1 overflow-hidden"><div class="h-full grad-violet fin-bar-fill" style="width:0%"></div></div>
+                <div class="text-[11px] text-slate-500 mt-1">Meta ≥ 80% · <span class="fin-bar-status font-semibold"></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">EBITDA acumulado vs Meta</h3>
+            <p class="text-xs text-slate-500">Cumplimiento mensual de la meta de 12%</p>
+            <div class="mt-4" style="height:260px;"><canvas id="fin-ebitda"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Comportamiento Facturación / Recaudo</h3>
+            <p class="text-xs text-slate-500">Tendencia mensual con metas de referencia</p>
+            <div class="mt-4" style="height:260px;"><canvas id="fin-factrec"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================= VIEW: PROYECTOS ========================= -->
+      <section class="view" id="view-proyectos">
+        <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <div class="flex items-center gap-2">
+            <button type="button" class="det-pill det-pill-active" data-pry-tab="pmo">Control de cuotas · PMO</button>
+            <button type="button" class="det-pill" data-pry-tab="hitos">Hitos</button>
+            <button type="button" class="det-pill" data-pry-tab="okr">Indicadores OKR</button>
+          </div>
+          <span class="text-xs text-slate-500">Actualizado: <span id="updated-at-proyectos" class="font-semibold text-slate-700">Sin datos aún</span></span>
+        </div>
+
+        <!-- ========== Sub-vista: Control de cuotas (plantilla ID11887_Contro_de_cuotas) ========== -->
+        <div id="pry-tab-pmo">
+
+          <div class="card p-4">
+            <div class="flex flex-wrap items-end gap-4">
+              <div>
+                <span class="sf-label">Cumple</span>
+                <div class="flex gap-1" id="pmo-cumple">
+                  <button type="button" class="det-pill det-pill-active" data-cumple="todos">Todos</button>
+                  <button type="button" class="det-pill" data-cumple="si">Sí</button>
+                  <button type="button" class="det-pill" data-cumple="no">No</button>
+                </div>
+              </div>
+              <div style="min-width:220px;">
+                <label class="sf-label" for="pmo-responsable">Responsable</label>
+                <select id="pmo-responsable" class="input-base"><option value="todos">Todos</option></select>
+              </div>
+              <div style="min-width:240px;flex:1;">
+                <label class="sf-label" for="pmo-cliente">Cliente</label>
+                <input id="pmo-cliente" class="input-base" type="search" placeholder="Buscar cliente..." autocomplete="off" />
+              </div>
+              <button type="button" id="pmo-clear" class="btn-secondary">Limpiar</button>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3">
+              El trimestre y el mes de corte se toman del panel de filtros lateral —
+              periodo activo: <span id="pmo-periodo" class="font-semibold text-slate-700">Ene – Dic</span>
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mt-4" id="pmo-cards"></div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+            <div class="card p-5 lg:col-span-2">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="font-semibold text-slate-800">Ejecución de cuotas por mes</h3>
+                  <p class="text-xs text-slate-500">Proyectado vs. valor ejecutado por la PMO y saldo por ejecutar</p>
+                </div>
+                <span class="chip chip-info">Ene – Dic 2026</span>
+              </div>
+              <div class="mt-4" style="height:340px;"><canvas id="pmo-mes"></canvas></div>
+            </div>
+            <div class="card p-5">
+              <h3 class="font-semibold text-slate-800">Cumplimiento</h3>
+              <p class="text-xs text-slate-500">Avance de la PMO y recaudo sobre lo facturado</p>
+              <div class="grid grid-cols-2 gap-2 mt-4">
+                <div class="flex flex-col items-center">
+                  <div class="relative" style="width:130px;height:130px;">
+                    <canvas id="pmo-g-pmo"></canvas>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                      <div id="pmo-overlay-pmo" class="text-xl font-extrabold text-slate-800 kpi-num">—</div>
+                    </div>
+                  </div>
+                  <div class="text-[11px] text-slate-500 mt-1">% PMO</div>
+                </div>
+                <div class="flex flex-col items-center">
+                  <div class="relative" style="width:130px;height:130px;">
+                    <canvas id="pmo-g-rec"></canvas>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                      <div id="pmo-overlay-rec" class="text-xl font-extrabold text-slate-800 kpi-num">—</div>
+                    </div>
+                  </div>
+                  <div class="text-[11px] text-slate-500 mt-1">% Recaudado</div>
+                </div>
+              </div>
+              <div class="divider my-4"></div>
+              <div id="pmo-resumen" class="text-xs text-slate-500 space-y-1"></div>
+            </div>
+          </div>
+
+          <div class="card p-5 mt-6">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 class="font-semibold text-slate-800">Detalle de cuotas</h3>
+                <p class="text-xs text-slate-500">Una fila por proyecto y mes con movimiento — ordenado por saldo por ejecutar</p>
+              </div>
+              <span id="pmo-tabla-count" class="chip chip-info"></span>
+            </div>
+            <div class="mt-4 scrollbar" style="max-height:460px;overflow:auto;">
+              <table class="detalle-table" id="pmo-tabla"></table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ========== Sub-vista: Hitos (plantilla ID11920_Hitos_PMO) ========== -->
+        <div id="pry-tab-hitos" style="display:none;">
+
+          <div class="card p-4">
+            <div class="flex flex-wrap items-end gap-4">
+              <div>
+                <span class="sf-label">Cumplimiento</span>
+                <div class="flex gap-1" id="hit-cumple">
+                  <button type="button" class="det-pill det-pill-active" data-hcumple="todos">Todos</button>
+                  <button type="button" class="det-pill" data-hcumple="si">Sí</button>
+                  <button type="button" class="det-pill" data-hcumple="no">No</button>
+                  <button type="button" class="det-pill" data-hcumple="sinevaluar">Sin evaluar</button>
+                </div>
+              </div>
+              <div style="min-width:210px;">
+                <label class="sf-label" for="hit-responsable">Responsable</label>
+                <select id="hit-responsable" class="input-base"><option value="todos">Todos</option></select>
+              </div>
+              <div style="min-width:170px;">
+                <label class="sf-label" for="hit-licencia">Tipo de licencia</label>
+                <select id="hit-licencia" class="input-base"><option value="todos">Todas</option></select>
+              </div>
+              <div style="min-width:220px;flex:1;">
+                <label class="sf-label" for="hit-cliente">Cliente</label>
+                <input id="hit-cliente" class="input-base" type="search" placeholder="Buscar cliente..." autocomplete="off" />
+              </div>
+              <button type="button" id="hit-clear" class="btn-secondary">Limpiar</button>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-3">
+              El trimestre y el mes de corte se toman del panel de filtros lateral y se aplican sobre la
+              fecha estimada del hito — periodo activo: <span id="hit-periodo" class="font-semibold text-slate-700">Ene – Dic</span>
+            </p>
+          </div>
+
+          <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mt-4" id="hit-cards"></div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+            <div class="card p-5 lg:col-span-2">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h3 class="font-semibold text-slate-800">Hitos por mes</h3>
+                  <p class="text-xs text-slate-500">Hitos facturables vs. por cumplir, sobre la fecha estimada del hito</p>
+                </div>
+                <span class="chip chip-info">Ene – Dic 2026</span>
+              </div>
+              <div class="mt-4" style="height:340px;"><canvas id="hit-mes"></canvas></div>
+            </div>
+            <div class="card p-5">
+              <h3 class="font-semibold text-slate-800">Cumplimiento de hitos</h3>
+              <p class="text-xs text-slate-500">Hitos facturables / total de hitos del periodo</p>
+              <div class="mt-4 flex justify-center">
+                <div class="relative" style="width:180px;height:180px;">
+                  <canvas id="hit-gauge"></canvas>
+                  <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <div id="hit-overlay" class="text-3xl font-extrabold text-slate-800 kpi-num">—</div>
+                    <div class="text-[11px] text-slate-500">cumplimiento</div>
+                  </div>
+                </div>
+              </div>
+              <div class="divider my-4"></div>
+              <div id="hit-resumen" class="text-xs text-slate-500 space-y-1"></div>
+            </div>
+          </div>
+
+          <div class="card p-5 mt-6">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 class="font-semibold text-slate-800">Detalle de hitos</h3>
+                <p class="text-xs text-slate-500">Agrupado por requerimiento y en orden de hito — verde si se cumplió en la fecha estimada o antes; rojo con los días de atraso si fue después</p>
+              </div>
+              <span id="hit-tabla-count" class="chip chip-info"></span>
+            </div>
+            <div class="mt-4 scrollbar" style="max-height:460px;overflow:auto;">
+              <table class="detalle-table" id="hit-tabla"></table>
+            </div>
+          </div>
+
+          <div class="card p-5 mt-6">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h3 class="font-semibold text-slate-800">Hitos por cliente</h3>
+                <p class="text-xs text-slate-500">De mayor a menor cantidad de hitos y, a igual cantidad, por mayor % de cumplimiento</p>
+              </div>
+              <span id="hit-clientes-count" class="chip chip-info"></span>
+            </div>
+            <div class="mt-4 scrollbar" style="max-height:520px;overflow-y:auto;">
+              <div id="hit-clientes-wrap"><canvas id="hit-clientes"></canvas></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ========== Sub-vista: indicadores OKR del área ========== -->
+        <div id="pry-tab-okr" style="display:none;">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 card-loading" id="cards-proyectos"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Cumplimiento mensual por indicador</h3>
+                <p class="text-xs text-slate-500">Plan de ejecución, avance económico y habilitación de facturación vs meta 95%</p>
+              </div>
+              <span class="chip chip-info">Ene – Dic 2026</span>
+            </div>
+            <div class="mt-4" style="height:320px;"><canvas id="pry-line"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Consumo de horas</h3>
+            <p class="text-xs text-slate-500">Horas ejecutadas / contratadas — Meta ≤100%</p>
+            <div class="mt-4" style="height:260px;"><canvas id="pry-horas"></canvas></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Plan de ejecución</h3>
+            <div class="mt-3 flex items-center justify-center" style="height:200px;">
+              <div class="relative" style="width:170px;height:170px;">
+                <canvas id="pry-g1"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                  <div id="pry-overlay-g1" class="text-3xl font-extrabold text-slate-800 kpi-num">—</div>
+                  <div class="text-[11px] text-slate-500">YTD</div>
+                </div>
+              </div>
+            </div>
+            <div class="text-center"><span class="chip chip-ok">Cumple ≥95%</span></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Avance económico</h3>
+            <div class="mt-3 flex items-center justify-center" style="height:200px;">
+              <div class="relative" style="width:170px;height:170px;">
+                <canvas id="pry-g2"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                  <div id="pry-overlay-g2" class="text-3xl font-extrabold text-slate-800 kpi-num">—</div>
+                  <div class="text-[11px] text-slate-500">YTD</div>
+                </div>
+              </div>
+            </div>
+            <div class="text-center"><span class="chip chip-warn">En riesgo</span></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Habilitación facturación</h3>
+            <div class="mt-3 flex items-center justify-center" style="height:200px;">
+              <div class="relative" style="width:170px;height:170px;">
+                <canvas id="pry-g3"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                  <div id="pry-overlay-g3" class="text-3xl font-extrabold text-slate-800 kpi-num">—</div>
+                  <div class="text-[11px] text-slate-500">YTD</div>
+                </div>
+              </div>
+            </div>
+            <div class="text-center"><span class="chip chip-ok">En meta</span></div>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <!-- ========================= VIEW: SOLUCIONES ========================= -->
+      <section class="view" id="view-soluciones">
+        <div class="flex justify-end mb-2">
+          <span class="text-xs text-slate-500">Actualizado: <span id="updated-at-soluciones" class="font-semibold text-slate-700">Sin datos aún</span></span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 card-loading" id="cards-soluciones"></div>
+
+        <div class="mt-6">
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Confiabilidad del software mensual</h3>
+                <p class="text-xs text-slate-500">100 − % de requerimientos diagnosticados como defecto de calidad — Meta ≥ 90%</p>
+              </div>
+              <span class="chip chip-info">Ene – Dic 2026</span>
+            </div>
+            <div class="mt-4" style="height:420px;"><canvas id="sol-line"></canvas></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Tickets abiertos por recurso</h3>
+                <p class="text-xs text-slate-500">Backlog asignado por persona</p>
+              </div>
+              <span class="chip chip-info">Recurso_Accion</span>
+            </div>
+            <div class="mt-4" style="height:300px;"><canvas id="sol-recurso"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Tickets abiertos por acción</h3>
+                <p class="text-xs text-slate-500">Etapa actual del flujo de atención</p>
+              </div>
+              <span class="chip chip-info">188 abiertos</span>
+            </div>
+            <div class="mt-4" style="height:300px;"><canvas id="sol-accion"></canvas></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Tickets abiertos por cliente</h3>
+                <p class="text-xs text-slate-500">Backlog vigente por cliente — desplazar para ver todos</p>
+              </div>
+              <span class="chip chip-info" id="sol-cliente-count">Todos</span>
+            </div>
+            <div class="mt-4 overflow-x-auto scrollbar" style="height:300px;">
+              <div id="sol-cliente-wrap" style="height:100%;"><canvas id="sol-cliente"></canvas></div>
+            </div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Tickets abiertos por producto</h3>
+            <p class="text-xs text-slate-500">Distribución del backlog</p>
+            <div class="mt-4" style="height:300px;"><canvas id="sol-producto"></canvas></div>
+            <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+              <div><div class="text-amber-600 font-bold text-lg">67</div><div class="text-slate-500">Abiertas calidad</div></div>
+              <div><div class="text-sky-600 font-bold text-lg">110</div><div class="text-slate-500">Abiertas servicios</div></div>
+              <div><div class="text-slate-600 font-bold text-lg">11</div><div class="text-slate-500">Otras</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================= VIEW: IDS ========================= -->
+      <section class="view" id="view-ids">
+        <div class="flex justify-end mb-2">
+          <span class="text-xs text-slate-500">Actualizado: <span id="updated-at-ids" class="font-semibold text-slate-700">Sin datos aún</span></span>
+        </div>
+        <div class="grid grid-cols-2 gap-3 card-loading" id="cards-ids"></div>
+
+        <div class="grid grid-cols-1 gap-4 mt-6">
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Nivel de confiabilidad</h3>
+                <p class="text-xs text-slate-500">Cumplimiento por evento vs meta — línea punteada</p>
+              </div>
+              <span class="chip chip-info" id="ids-conf-period">Ene – Dic</span>
+            </div>
+            <div class="mt-4" style="height:300px;"><canvas id="ids-conf"></canvas></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Cumplimiento ANS por producto</h3>
+                <p class="text-xs text-slate-500">Promedio mensual por producto — color según cumplimiento de meta</p>
+              </div>
+              <span class="chip chip-info">Ene – Dic</span>
+            </div>
+            <div class="mt-4 overflow-x-auto scrollbar" style="height:300px;">
+              <div style="min-width:900px;height:100%;"><canvas id="ids-ans-producto"></canvas></div>
+            </div>
+            <div id="ids-ans-producto-legend" class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500"></div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Cumplimiento ANS</h3>
+                <p class="text-xs text-slate-500">Promedio mensual entre todos los productos</p>
+              </div>
+              <span class="chip chip-info" id="ids-ans-global-period">Ene – Dic</span>
+            </div>
+            <div class="mt-4" style="height:300px;"><canvas id="ids-ans-global"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================= VIEW: FILTROS ========================= -->
+      <section class="view" id="view-filtros"></section>
+
+      <!-- ========================= VIEW: ADMINISTRACIÓN ========================= -->
+      <section class="view" id="view-admin"></section>
+
+    </div>
+  </main>
+</div>
+
+<script src="assets/js/auth.js"></script>
+<script src="assets/js/store.js"></script>
+<script src="assets/js/odata-client.js"></script>
+<script src="assets/js/mapper.js"></script>
+<script src="assets/js/area-catalog.js"></script>
+<script src="assets/js/legacy-render.js"></script>
+<script src="assets/js/analisis.js"></script>
+<script src="assets/js/admin.js"></script>
+<script src="assets/js/parametrizacion.js"></script>
+<script src="assets/js/filtros.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>

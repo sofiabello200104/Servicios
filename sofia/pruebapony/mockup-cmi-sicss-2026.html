@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SICSS · Cuadro de Mando Integral 2026</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#F1F5F9; --panel:#FFFFFF; --ink:#0F172A; --ink-soft:#475569; --ink-mute:#94A3B8;
+    --brand:#0EA5E9; --brand-deep:#0369A1; --brand-soft:#E0F2FE;
+    --ok:#10B981; --warn:#F59E0B; --bad:#EF4444; --violet:#8B5CF6;
+    --line:#E2E8F0;
+  }
+  html,body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink);}
+  .sidebar{background:linear-gradient(180deg,#0B1220 0%,#0F172A 60%,#111E36 100%);}
+  .nav-item{transition:all .18s ease;}
+  .nav-item:hover{background:rgba(14,165,233,.10);color:#fff;}
+  .nav-item.active{background:linear-gradient(90deg,rgba(14,165,233,.22),rgba(14,165,233,0));color:#fff;border-left:3px solid #0EA5E9;padding-left:13px;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px rgba(15,23,42,.04),0 4px 16px rgba(15,23,42,.04);}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;}
+  .chip-ok{background:#DCFCE7;color:#15803D;}
+  .chip-warn{background:#FEF3C7;color:#B45309;}
+  .chip-bad{background:#FEE2E2;color:#B91C1C;}
+  .chip-info{background:#E0F2FE;color:#0369A1;}
+  .dot{width:8px;height:8px;border-radius:99px;display:inline-block;}
+  .scrollbar::-webkit-scrollbar{width:8px;height:8px;}
+  .scrollbar::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:99px;}
+  .spark-wrap{position:relative;height:40px;width:100%;}
+  .exec-spark-wrap{position:relative;height:42px;width:100%;}
+  .view{display:none;animation:fade .35s ease;}
+  .view.active{display:block;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+  .kpi-num{font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+  .grad-blue{background:linear-gradient(135deg,#0EA5E9,#0369A1);}
+  .grad-green{background:linear-gradient(135deg,#10B981,#047857);}
+  .grad-amber{background:linear-gradient(135deg,#F59E0B,#B45309);}
+  .grad-red{background:linear-gradient(135deg,#EF4444,#B91C1C);}
+  .grad-violet{background:linear-gradient(135deg,#8B5CF6,#5B21B6);}
+  .ring-track{stroke:#E2E8F0;}
+  .badge-meta{font-size:11px;font-weight:600;letter-spacing:.02em;}
+  .divider{height:1px;background:var(--line);}
+  .pill{padding:4px 10px;border-radius:999px;background:#F1F5F9;color:#475569;font-size:11px;font-weight:600;}
+  .table-row:hover{background:#F8FAFC;}
+  .spark{height:36px;}
+
+  /* ===== Responsive ===== */
+  #sidebar-backdrop{display:none;}
+  #hamburger{display:none;}
+  @media (max-width: 1023px){
+    #sidebar{transform:translateX(-100%);transition:transform .28s ease;z-index:60;width:280px;}
+    #sidebar.open{transform:translateX(0);box-shadow:0 0 40px rgba(0,0,0,.4);}
+    #sidebar-backdrop.show{display:block;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:55;}
+    #hamburger{display:inline-flex;}
+    main{margin-left:0 !important;}
+    .topbar-actions{display:none;}
+  }
+  @media (max-width: 640px){
+    .page-title{font-size:1rem !important;}
+    .crumb{font-size:10px !important;}
+    .card{border-radius:12px;}
+    table{font-size:12px;}
+    .pill{display:none;}
+  }
+  /* Make sparklines a bit shorter on mobile */
+  @media (max-width: 640px){
+    .spark-wrap{height:34px;}
+  }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div class="flex min-h-screen">
+
+  <div id="sidebar-backdrop"></div>
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="sidebar w-64 text-slate-300 flex flex-col fixed h-screen">
+    <div class="px-5 py-5 border-b border-white/5">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl grad-blue flex items-center justify-center font-bold text-white shadow-lg shadow-sky-500/30">S</div>
+        <div>
+          <div class="text-white font-bold leading-none">SICSS</div>
+          <div class="text-[11px] text-slate-400 mt-1">Cuadro de Mando · 2026</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="flex-1 py-3 px-2 scrollbar overflow-y-auto">
+      <div class="text-[10px] uppercase tracking-wider text-slate-500 px-3 py-2">Vistas</div>
+      <a data-view="exec" class="nav-item active flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2 4 4 8-8 4 4"/></svg>
+        Resumen Ejecutivo
+      </a>
+
+      <div class="text-[10px] uppercase tracking-wider text-slate-500 px-3 pt-4 pb-2">Áreas</div>
+      <a data-view="comercial" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <span class="dot bg-sky-400"></span>Dirección Comercial
+      </a>
+      <a data-view="financiera" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <span class="dot bg-emerald-400"></span>Gestión Adm. y Fin.
+      </a>
+      <a data-view="proyectos" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <span class="dot bg-amber-400"></span>Proyectos
+      </a>
+      <a data-view="soluciones" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <span class="dot bg-violet-400"></span>Soluciones
+      </a>
+      <a data-view="ids" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <span class="dot bg-pink-400"></span>IDS
+      </a>
+
+      <div class="text-[10px] uppercase tracking-wider text-slate-500 px-3 pt-5 pb-2">Filtros</div>
+      <div class="px-3 space-y-2">
+        <div>
+          <label class="text-[11px] text-slate-400">Año</label>
+          <select class="w-full mt-1 bg-slate-800/70 text-slate-200 text-sm rounded-md px-2 py-1.5 border border-slate-700">
+            <option>2026</option><option>2025</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-[11px] text-slate-400">Trimestre</label>
+          <select class="w-full mt-1 bg-slate-800/70 text-slate-200 text-sm rounded-md px-2 py-1.5 border border-slate-700">
+            <option>Acumulado YTD</option><option>Q1</option><option>Q2</option><option>Q3</option><option>Q4</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-[11px] text-slate-400">Mes corte</label>
+          <select class="w-full mt-1 bg-slate-800/70 text-slate-200 text-sm rounded-md px-2 py-1.5 border border-slate-700">
+            <option>Mayo</option><option>Abril</option><option>Marzo</option>
+          </select>
+        </div>
+      </div>
+    </nav>
+
+    <div class="px-5 py-3 border-t border-white/5 text-[11px] text-slate-400">
+      <div class="flex items-center justify-between">
+        <span>Actualizado</span>
+        <span class="text-slate-300 font-medium">22/05/2026</span>
+      </div>
+      <div class="mt-1 text-slate-500">v0.1 · Mockup interno</div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="lg:ml-64 flex-1 min-h-screen w-full">
+
+    <!-- TOPBAR -->
+    <div class="bg-white border-b border-slate-200 px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between sticky top-0 z-30 gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <button id="hamburger" class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-slate-100 text-slate-700 active:bg-slate-200 shrink-0">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <div class="min-w-0">
+          <div class="text-[12px] text-slate-500 uppercase tracking-wider crumb truncate" id="crumb">Panel Ejecutivo</div>
+          <h1 class="text-base lg:text-xl font-bold text-slate-900 mt-0.5 page-title truncate" id="page-title">Resumen Ejecutivo 2026</h1>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 topbar-actions shrink-0">
+        <span class="pill">Periodo: Ene – May 2026</span>
+        <button class="px-3 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>
+          Exportar PDF
+        </button>
+        <button class="px-3 py-2 text-sm font-medium text-white grad-blue rounded-lg flex items-center gap-2 shadow shadow-sky-500/30">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m9.032 4.026a3 3 0 10-5.464-2.684 3 3 0 005.464 2.684zm0-9.368a3 3 0 10-5.464 2.684 3 3 0 005.464-2.684z"/></svg>
+          Compartir
+        </button>
+      </div>
+    </div>
+
+    <div class="p-4 lg:p-8 space-y-6 lg:space-y-8">
+
+      <!-- ========================= VIEW: RESUMEN EJECUTIVO ========================= -->
+      <section class="view active" id="view-exec">
+
+        <!-- KPI tiles -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 lg:gap-4">
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Cumplimiento Global</div>
+              <div class="grad-blue w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold">%</div>
+            </div>
+            <div class="text-4xl font-extrabold mt-3 kpi-num">82<span class="text-2xl text-slate-400">%</span></div>
+            <div class="text-xs text-emerald-600 font-semibold mt-1">▲ 3.4 pts vs mes anterior</div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">KPIs cumplidos</div>
+              <span class="dot bg-emerald-500"></span>
+            </div>
+            <div class="text-4xl font-extrabold mt-3 kpi-num text-emerald-600">12</div>
+            <div class="text-xs text-slate-500 mt-1">de 18 indicadores</div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">En riesgo</div>
+              <span class="dot bg-amber-500"></span>
+            </div>
+            <div class="text-4xl font-extrabold mt-3 kpi-num text-amber-600">4</div>
+            <div class="text-xs text-slate-500 mt-1">requieren atención</div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">No cumplidos</div>
+              <span class="dot bg-rose-500"></span>
+            </div>
+            <div class="text-4xl font-extrabold mt-3 kpi-num text-rose-600">2</div>
+            <div class="text-xs text-slate-500 mt-1">acción inmediata</div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div class="text-xs text-slate-500 uppercase tracking-wider font-semibold">Tendencia YTD</div>
+              <svg class="w-4 h-4 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+            </div>
+            <div class="exec-spark-wrap mt-3"><canvas id="exec-spark"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Row 2 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Cumplimiento por Área</h3>
+                <p class="text-xs text-slate-500">Avance ponderado YTD vs meta del periodo</p>
+              </div>
+              <span class="chip chip-info">YTD 2026</span>
+            </div>
+            <div class="mt-4" style="height:280px;"><canvas id="exec-areas"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold text-slate-800">Estado de los KPIs</h3>
+              <span class="chip chip-info">18 total</span>
+            </div>
+            <div class="mt-4 relative" style="height:280px;"><canvas id="exec-donut"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Row 3 -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Cumplimiento Global en el Tiempo</h3>
+                <p class="text-xs text-slate-500">Promedio ponderado mensual de los 18 indicadores</p>
+              </div>
+              <div class="flex gap-2">
+                <span class="chip chip-ok"><span class="dot bg-emerald-500"></span>Real</span>
+                <span class="chip chip-info"><span class="dot bg-sky-500"></span>Meta</span>
+              </div>
+            </div>
+            <div class="mt-4" style="height:280px;"><canvas id="exec-line"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Top desempeño</h3>
+            <p class="text-xs text-slate-500 mb-3">5 mejores indicadores YTD</p>
+            <div class="space-y-2" id="exec-top"></div>
+          </div>
+        </div>
+
+        <!-- Row 4 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Indicadores a mejorar</h3>
+            <p class="text-xs text-slate-500 mb-3">Requieren plan de acción inmediato</p>
+            <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-[480px]">
+              <thead>
+                <tr class="text-left text-xs text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                  <th class="py-2">Indicador</th><th class="py-2">Área</th><th class="py-2 text-right">Avance</th><th class="py-2 text-right">Meta</th><th class="py-2"></th>
+                </tr>
+              </thead>
+              <tbody id="exec-bottom"></tbody>
+            </table>
+            </div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Mapa estratégico — Perspectivas</h3>
+            <p class="text-xs text-slate-500 mb-3">Cumplimiento ponderado por perspectiva BSC</p>
+            <div style="height:260px;"><canvas id="exec-radar"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================= VIEW: DIRECCION COMERCIAL ========================= -->
+      <section class="view" id="view-comercial">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3" id="cards-comercial"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Ingresos mensuales por línea</h3>
+                <p class="text-xs text-slate-500">Nuevos, venta cruzada, renovaciones y Greenywave (millones COP)</p>
+              </div>
+              <span class="chip chip-info">Ene – Dic 2026</span>
+            </div>
+            <div class="mt-4" style="height:320px;"><canvas id="com-stack"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Mix de ingresos YTD</h3>
+            <p class="text-xs text-slate-500">Distribución acumulada por línea</p>
+            <div class="mt-4" style="height:230px;"><canvas id="com-donut"></canvas></div>
+            <div class="mt-3 text-center text-xs text-slate-500">Total YTD: <span class="font-bold text-slate-800" id="com-total"></span></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Acumulado vs Meta anual</h3>
+                <p class="text-xs text-slate-500">Ingresos totales acumulados contra meta de $13.804,8M</p>
+              </div>
+              <span class="chip chip-info">Real vs Meta</span>
+            </div>
+            <div class="mt-4" style="height:280px;"><canvas id="com-acum"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Cobertura de Pipeline</h3>
+            <p class="text-xs text-slate-500">Meta: ≥ 4x meta de ventas</p>
+            <div class="mt-4 flex flex-col items-center">
+              <div class="relative" style="width:180px;height:180px;">
+                <canvas id="com-gauge"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                  <div class="text-3xl font-extrabold text-slate-800 kpi-num">4.6x</div>
+                  <div class="text-[11px] text-slate-500">cobertura actual</div>
+                </div>
+              </div>
+              <span class="chip chip-ok mt-2">Cumple meta (≥4x)</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-5 mt-6">
+          <h3 class="font-semibold text-slate-800">Observaciones y plan de acción</h3>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-3 text-sm text-slate-600">
+            <div>
+              <div class="font-semibold text-slate-700 mb-1">Análisis</div>
+              <p>El crecimiento de ingresos nuevos mantiene un avance del 78% frente a la meta acumulada YTD. La línea de venta cruzada mostró aceleración en Q1 con un repunte sostenido en Mar y Abr. Greenywave inicia ejecución comercial en Julio según plan.</p>
+            </div>
+            <div>
+              <div class="font-semibold text-slate-700 mb-1">Propuesta de mejoramiento</div>
+              <p>Reforzar pipeline de renovaciones del segundo semestre, intensificar gestión de cuentas con vencimiento Q3 e impulsar campañas de adopción Greenywave en clientes top 20.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================= VIEW: GESTION ADM FIN ========================= -->
+      <section class="view" id="view-financiera">
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3" id="cards-financiera"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Márgenes financieros mensuales</h3>
+                <p class="text-xs text-slate-500">EBITDA, utilidad operacional y utilidad bruta vs meta</p>
+              </div>
+              <div class="flex gap-2">
+                <span class="chip chip-info"><span class="dot bg-sky-500"></span>EBITDA</span>
+                <span class="chip chip-info"><span class="dot bg-emerald-500"></span>Op.</span>
+                <span class="chip chip-info"><span class="dot bg-violet-500"></span>Bruta</span>
+              </div>
+            </div>
+            <div class="mt-4" style="height:320px;"><canvas id="fin-margenes"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Facturación vs Recaudo</h3>
+            <p class="text-xs text-slate-500">Cumplimiento YTD vs meta</p>
+            <div class="mt-4 space-y-5">
+              <div>
+                <div class="flex justify-between text-sm"><span class="text-slate-600">Facturación</span><span class="font-bold text-slate-800">93.4%</span></div>
+                <div class="h-3 bg-slate-100 rounded-full mt-1 overflow-hidden"><div class="h-full grad-blue" style="width:93.4%"></div></div>
+                <div class="text-[11px] text-slate-500 mt-1">Meta ≥ 95% · <span class="text-amber-600 font-semibold">En riesgo</span></div>
+              </div>
+              <div>
+                <div class="flex justify-between text-sm"><span class="text-slate-600">Recaudo</span><span class="font-bold text-slate-800">91.7%</span></div>
+                <div class="h-3 bg-slate-100 rounded-full mt-1 overflow-hidden"><div class="h-full grad-green" style="width:91.7%"></div></div>
+                <div class="text-[11px] text-slate-500 mt-1">Meta ≥ 90% · <span class="text-emerald-600 font-semibold">Cumple</span></div>
+              </div>
+              <div>
+                <div class="flex justify-between text-sm"><span class="text-slate-600">Personal Competente</span><span class="font-bold text-slate-800">84%</span></div>
+                <div class="h-3 bg-slate-100 rounded-full mt-1 overflow-hidden"><div class="h-full grad-violet" style="width:84%"></div></div>
+                <div class="text-[11px] text-slate-500 mt-1">Meta ≥ 80% · <span class="text-emerald-600 font-semibold">Cumple</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">EBITDA acumulado vs Meta</h3>
+            <p class="text-xs text-slate-500">Cumplimiento mensual de la meta de 12%</p>
+            <div class="mt-4" style="height:260px;"><canvas id="fin-ebitda"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Comportamiento Facturación / Recaudo</h3>
+            <p class="text-xs text-slate-500">Tendencia mensual con metas de referencia</p>
+            <div class="mt-4" style="height:260px;"><canvas id="fin-factrec"></canvas></div>
+          </div>
+        </div>
+
+        <div class="card p-5 mt-6">
+          <h3 class="font-semibold text-slate-800">Observaciones y plan de acción</h3>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-3 text-sm text-slate-600">
+            <div>
+              <div class="font-semibold text-slate-700 mb-1">Análisis</div>
+              <p>Los márgenes operacionales mantienen un comportamiento estable por encima de la meta del 12% EBITDA. Facturación se encuentra ligeramente por debajo del 95%, principalmente por aplazamientos de hitos en dos proyectos del portafolio público.</p>
+            </div>
+            <div>
+              <div class="font-semibold text-slate-700 mb-1">Propuesta de mejoramiento</div>
+              <p>Reforzar seguimiento semanal de hitos facturables, alinear con dirección de proyectos para liberar entregables atrasados y mantener disciplina en gestión de costos directos para sostener utilidad bruta sobre 45%.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================= VIEW: PROYECTOS ========================= -->
+      <section class="view" id="view-proyectos">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3" id="cards-proyectos"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Cumplimiento mensual por indicador</h3>
+                <p class="text-xs text-slate-500">Plan de ejecución, avance económico y habilitación de facturación vs meta 95%</p>
+              </div>
+              <span class="chip chip-info">Ene – Dic 2026</span>
+            </div>
+            <div class="mt-4" style="height:320px;"><canvas id="pry-line"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Consumo de horas</h3>
+            <p class="text-xs text-slate-500">Horas ejecutadas / contratadas — Meta ≤100%</p>
+            <div class="mt-4" style="height:260px;"><canvas id="pry-horas"></canvas></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Plan de ejecución</h3>
+            <div class="mt-3 flex items-center justify-center" style="height:200px;">
+              <div class="relative" style="width:170px;height:170px;">
+                <canvas id="pry-g1"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                  <div class="text-3xl font-extrabold text-slate-800 kpi-num">96%</div>
+                  <div class="text-[11px] text-slate-500">YTD</div>
+                </div>
+              </div>
+            </div>
+            <div class="text-center"><span class="chip chip-ok">Cumple ≥95%</span></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Avance económico</h3>
+            <div class="mt-3 flex items-center justify-center" style="height:200px;">
+              <div class="relative" style="width:170px;height:170px;">
+                <canvas id="pry-g2"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                  <div class="text-3xl font-extrabold text-slate-800 kpi-num">92%</div>
+                  <div class="text-[11px] text-slate-500">YTD</div>
+                </div>
+              </div>
+            </div>
+            <div class="text-center"><span class="chip chip-warn">En riesgo</span></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Habilitación facturación</h3>
+            <div class="mt-3 flex items-center justify-center" style="height:200px;">
+              <div class="relative" style="width:170px;height:170px;">
+                <canvas id="pry-g3"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                  <div class="text-3xl font-extrabold text-slate-800 kpi-num">95%</div>
+                  <div class="text-[11px] text-slate-500">YTD</div>
+                </div>
+              </div>
+            </div>
+            <div class="text-center"><span class="chip chip-ok">En meta</span></div>
+          </div>
+        </div>
+
+        <div class="card p-5 mt-6">
+          <h3 class="font-semibold text-slate-800">Observaciones y plan de acción</h3>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-3 text-sm text-slate-600">
+            <div><div class="font-semibold text-slate-700 mb-1">Análisis</div><p>El plan de ejecución cumple consistentemente con la meta del 95%. El avance económico muestra rezago en abril por reprogramación de hitos en dos proyectos. Consumo de horas se mantiene cercano al 100% con desviaciones puntuales.</p></div>
+            <div><div class="font-semibold text-slate-700 mb-1">Propuesta de mejoramiento</div><p>Implementar checkpoints quincenales con líderes técnicos para evitar sobre-ejecución de horas y reforzar coordinación con cliente para liberar hitos pendientes que afectan el avance económico.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================= VIEW: SOLUCIONES ========================= -->
+      <section class="view" id="view-soluciones">
+
+        <!-- Filtros (mock — réplica de los segmentadores del tablero Power BI) -->
+        <div class="card p-4 flex flex-wrap items-center gap-x-5 gap-y-3">
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Fecha soporte</span>
+            <span class="pill">09/02/2026 – 17/07/2026</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Fecha entrega</span>
+            <span class="pill">28/04/2026 – 17/07/2026</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Edad</span>
+            <select class="bg-white border border-slate-200 text-sm text-slate-700 rounded-lg px-2 py-1.5">
+              <option>Todas</option><option>15 días</option><option>30 días</option><option>60 días</option><option>120 días</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Acción</span>
+            <select class="bg-white border border-slate-200 text-sm text-slate-700 rounded-lg px-2 py-1.5">
+              <option>Todas</option><option>Crear</option><option>Entrega final</option><option>Realizar</option>
+            </select>
+          </div>
+          <span class="ml-auto text-[11px] text-slate-400">Fuente: ID12046_73_Tablero_Indicadores_MCI · Corte 17/07/2026</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-4" id="cards-soluciones"></div>
+
+        <!-- Confiabilidad del software -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Confiabilidad del software mensual</h3>
+                <p class="text-xs text-slate-500">TS que cumplen niveles de servicio en calidad / total TS en calidad — Meta ≥ 90%</p>
+              </div>
+              <span class="chip chip-info">Ene – Dic 2026</span>
+            </div>
+            <div class="mt-4" style="height:300px;"><canvas id="sol-line"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Confiabilidad YTD</h3>
+            <p class="text-xs text-slate-500">Requerimientos sin defectos de calidad</p>
+            <div class="mt-3 flex items-center justify-center" style="height:200px;">
+              <div class="relative" style="width:180px;height:180px;">
+                <canvas id="sol-gauge"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                  <div class="text-3xl font-extrabold text-slate-800 kpi-num">91.3%</div>
+                  <div class="text-[11px] text-slate-500">acumulado</div>
+                </div>
+              </div>
+            </div>
+            <div class="text-center"><span class="chip chip-ok">Cumple ≥90%</span></div>
+          </div>
+        </div>
+
+        <!-- Backlog por recurso y por acción -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Tickets abiertos por recurso</h3>
+                <p class="text-xs text-slate-500">Backlog asignado por persona</p>
+              </div>
+              <span class="chip chip-info">Recurso_Accion</span>
+            </div>
+            <div class="mt-4" style="height:300px;"><canvas id="sol-recurso"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Tickets abiertos por acción</h3>
+                <p class="text-xs text-slate-500">Etapa actual del flujo de atención</p>
+              </div>
+              <span class="chip chip-info">188 abiertos</span>
+            </div>
+            <div class="mt-4" style="height:300px;"><canvas id="sol-accion"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Backlog por cliente y por producto -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5 lg:col-span-2">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Tickets abiertos por cliente</h3>
+                <p class="text-xs text-slate-500">Clientes con mayor backlog vigente</p>
+              </div>
+              <span class="chip chip-info">Top 12</span>
+            </div>
+            <div class="mt-4" style="height:300px;"><canvas id="sol-cliente"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Tickets abiertos por producto</h3>
+            <p class="text-xs text-slate-500">Distribución del backlog</p>
+            <div class="mt-4" style="height:300px;"><canvas id="sol-producto"></canvas></div>
+            <div class="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+              <div><div class="text-amber-600 font-bold text-lg">67</div><div class="text-slate-500">Abiertas calidad</div></div>
+              <div><div class="text-sky-600 font-bold text-lg">110</div><div class="text-slate-500">Abiertas servicios</div></div>
+              <div><div class="text-slate-600 font-bold text-lg">11</div><div class="text-slate-500">Otras</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card p-5 mt-6">
+          <h3 class="font-semibold text-slate-800">Observaciones y plan de acción</h3>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-3 text-sm text-slate-600">
+            <div><div class="font-semibold text-slate-700 mb-1">Análisis</div><p>La confiabilidad del software se mantiene sobre la meta del 90%. Del backlog de 188 tickets abiertos, 67 (35,6%) están en calidad y concentran el riesgo del indicador: la acción REALIZAR acumula 81 tickets y tres productos (Contabilidad Web, Controlblood y Nómina Web) reúnen el 61% del backlog.</p></div>
+            <div><div class="font-semibold text-slate-700 mb-1">Propuesta de mejoramiento</div><p>Priorizar la depuración de tickets en calidad con más de 60 días, balancear la carga de los dos recursos con mayor asignación y establecer revisión semanal de los productos con mayor backlog para proteger la meta de confiabilidad.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================= VIEW: IDS ========================= -->
+      <section class="view" id="view-ids">
+        <div class="grid grid-cols-2 gap-3" id="cards-ids"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Nivel de Confiabilidad del Software</h3>
+                <p class="text-xs text-slate-500">% requerimientos sin defectos de calidad — Meta ≥90%</p>
+              </div>
+              <span class="chip chip-info">Ene – Dic</span>
+            </div>
+            <div class="mt-4" style="height:300px;"><canvas id="ids-conf"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="font-semibold text-slate-800">Disponibilidad de Soluciones</h3>
+                <p class="text-xs text-slate-500">Tiempo real / proyectado — Meta ≥90%</p>
+              </div>
+              <span class="chip chip-info">Ene – Dic</span>
+            </div>
+            <div class="mt-4" style="height:300px;"><canvas id="ids-disp"></canvas></div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Confiabilidad YTD</h3>
+            <div class="mt-3 flex items-center justify-center" style="height:200px;">
+              <div class="relative" style="width:170px;height:170px;">
+                <canvas id="ids-g1"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                  <div class="text-3xl font-extrabold text-slate-800 kpi-num">93%</div>
+                  <div class="text-[11px] text-slate-500">acumulado</div>
+                </div>
+              </div>
+            </div>
+            <div class="text-center"><span class="chip chip-ok">Cumple ≥90%</span></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Disponibilidad YTD</h3>
+            <div class="mt-3 flex items-center justify-center" style="height:200px;">
+              <div class="relative" style="width:170px;height:170px;">
+                <canvas id="ids-g2"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                  <div class="text-3xl font-extrabold text-slate-800 kpi-num">96.4%</div>
+                  <div class="text-[11px] text-slate-500">uptime</div>
+                </div>
+              </div>
+            </div>
+            <div class="text-center"><span class="chip chip-ok">Cumple ≥90%</span></div>
+          </div>
+          <div class="card p-5">
+            <h3 class="font-semibold text-slate-800">Comparativo</h3>
+            <p class="text-xs text-slate-500">Confiabilidad vs Disponibilidad por trimestre</p>
+            <div class="mt-3" style="height:200px;"><canvas id="ids-comp"></canvas></div>
+          </div>
+        </div>
+
+        <div class="card p-5 mt-6">
+          <h3 class="font-semibold text-slate-800">Observaciones y plan de acción</h3>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-3 text-sm text-slate-600">
+            <div><div class="font-semibold text-slate-700 mb-1">Análisis</div><p>El nivel de confiabilidad supera la meta del 90% con tendencia estable. La disponibilidad se mantiene fuerte en 96%+ con un único incidente de degradación en marzo. Ambos indicadores en zona verde.</p></div>
+            <div><div class="font-semibold text-slate-700 mb-1">Propuesta de mejoramiento</div><p>Mantener proceso de revisión de calidad pre-release, fortalecer monitoreo proactivo de infraestructura y completar migración a observabilidad centralizada en Q3.</p></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script>
+/* ============================ DATA ============================ */
+const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const COLORS = {brand:'#0EA5E9',brandDeep:'#0369A1',ok:'#10B981',warn:'#F59E0B',bad:'#EF4444',violet:'#8B5CF6',pink:'#EC4899',ink:'#0F172A',mute:'#94A3B8',line:'#E2E8F0'};
+const fmtMoneyM = v => '$' + (v/1e6).toLocaleString('es-CO',{maximumFractionDigits:0}) + 'M';
+const fmtPct = v => (v).toLocaleString('es-CO',{maximumFractionDigits:1}) + '%';
+
+/* Comercial — valores reales del archivo */
+const COM = {
+  nuevos:       [116, 84, 450, 500, 500, 680, 720, 600, 550, 600, 650, 550],
+  cruzada:      [0, 5, 34, 0, 181, 175, 405, 303, 306, 142, 187, 220],
+  renovaciones: [0, 42, 134, 28, 94, 20, 0, 18, 19, 0, 52, 80],
+  greenywave:   [0, 0, 0, 0, 0, 225, 225, 225, 225, 225, 225, 225],
+  pipeline:     [3.8, 4.1, 4.3, 4.4, 4.6, 4.5, 4.7, 4.6, 4.5, 4.4, 4.3, 4.2],
+  metas:        {nuevos:6000, cruzada:2500, renovaciones:3729.8, greenywave:1575}
+};
+
+/* Financiera — emulados coherentes con metas */
+const FIN = {
+  ebitda:       [9.8, 10.4, 11.2, 11.8, 12.4, 12.7, 13.0, 13.2, 13.1, 13.4, 13.6, 13.8],
+  utilOp:       [11.2, 12.4, 13.6, 14.2, 14.8, 15.3, 15.6, 15.8, 15.7, 16.0, 16.2, 16.4],
+  utilBruta:    [41, 42, 43, 44, 45.2, 45.8, 46.1, 46.4, 46.2, 46.6, 47, 47.3],
+  facturacion:  [88, 91, 93, 94, 95, 96, 95, 96, 97, 97, 98, 98],
+  recaudo:      [86, 88, 90, 91, 92, 93, 93, 94, 94, 95, 95, 96],
+  personal:     [78, 79, 81, 82, 84, 85, 85, 86, 86, 87, 87, 88]
+};
+
+/* Proyectos */
+const PRY = {
+  ejecucion: [92, 94, 95, 96, 97, 96, 96, 97, 97, 98, 97, 98],
+  horas:     [98, 102, 96, 100, 99, 101, 97, 100, 98, 99, 100, 100],
+  avance:    [88, 90, 92, 91, 93, 94, 94, 95, 95, 96, 96, 97],
+  habilit:   [90, 92, 94, 95, 95, 96, 96, 96, 97, 97, 97, 98]
+};
+
+/* Soluciones — datos plantilla ID12046_73_Tablero_Indicadores_MCI */
+const SOL = {
+  confiabilidad: [89.2, 90.5, 88.9, 91.2, 92.1, 92.4, 92.8, 93.0, 93.4, 93.8, 94.1, 94.5],
+  abiertos: 188, calidad: 67, servicios: 110,
+  recursos: {
+    labels: ['EDWIN CAMPOS','JAIDER RAMIREZ','MARLON HERNANDO','PAOLA MACIAS','LAURA BELLO','JORGE ENRIQUE B.','JAIBER TORRES','JHONATAN STEVEN B.','HEIDY OSORIO'],
+    data:   [21, 18, 11, 9, 8, 6, 4, 4, 1]
+  },
+  acciones: {
+    labels: ['REALIZAR','REVISION DEV','ENTREGA FINAL','REVISION CALIDAD','AGENDA ENTREGA FINAL','REVISION SOLUCION','ACTUALIZA VERSION'],
+    data:   [81, 31, 29, 29, 7, 7, 4]
+  },
+  clientes: {
+    labels: ['Empresas Púb.','Universidad','Área Metrop.','Municipio A','Sociedad','Empresa SA','Alcaldía C.','Soluciones IT','E.S.P. Hidro','Corporación','Municipio B','Hidroeléctrica'],
+    data:   [19, 17, 8, 7, 7, 7, 6, 6, 5, 5, 4, 3]
+  },
+  productos: {
+    labels: ['CONTABILIDAD WEB','CONTROLBLOOD','NOMINA WEB','ALMACEN WEB','PRESUPUESTO WEB','BPM','PRESUPUESTO.NET','TESORERIA WEB','OTROS'],
+    data:   [50, 36, 29, 19, 18, 13, 10, 8, 5],
+    colors: ['#0EA5E9','#6D28D9','#F97316','#1D4ED8','#EC4899','#0D9488','#84CC16','#B45309','#94A3B8']
+  }
+};
+
+/* IDS */
+const IDS = {
+  confiabilidad: [88, 90, 91, 92, 93, 93, 94, 94, 93, 94, 95, 95],
+  disponibilidad:[95, 96, 94, 96, 97, 97, 96, 97, 98, 97, 97, 98]
+};
+
+/* Helpers */
+const sumTo = (arr,n)=>arr.slice(0,n).reduce((a,b)=>a+b,0);
+const cumulative = arr => arr.reduce((acc,v,i)=>{acc.push((acc[i-1]||0)+v);return acc;},[]);
+const avg = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+
+/* Semaphore */
+function semaphore(value, meta, opMode='gte'){
+  // opMode: gte (>= meta), lte (<= meta)
+  if(opMode==='gte'){
+    if(value >= meta) return 'ok';
+    if(value >= meta*0.92) return 'warn';
+    return 'bad';
+  } else {
+    if(value <= meta) return 'ok';
+    if(value <= meta*1.05) return 'warn';
+    return 'bad';
+  }
+}
+const chipFor = s => s==='ok'?'chip-ok':s==='warn'?'chip-warn':'chip-bad';
+const labelFor = s => s==='ok'?'En meta':s==='warn'?'En riesgo':'No cumple';
+
+/* ============================ NAV ============================ */
+const TITLES = {
+  exec:['Panel Ejecutivo','Resumen Ejecutivo 2026'],
+  comercial:['Área · Dirección Comercial','Crecimiento de Ingresos'],
+  financiera:['Área · Gestión Administrativa y Financiera','Sostenibilidad Financiera y Madurez del Capital Humano'],
+  proyectos:['Área · Proyectos','Excelencia Operativa'],
+  soluciones:['Área · Soluciones','Confiabilidad del Software y Gestión de Tickets'],
+  ids:['Área · IDS','Estabilidad y Disponibilidad del Software']
+};
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    el.classList.add('active');
+    const v = el.dataset.view;
+    document.querySelectorAll('.view').forEach(s=>s.classList.remove('active'));
+    document.getElementById('view-'+v).classList.add('active');
+    document.getElementById('crumb').textContent = TITLES[v][0];
+    document.getElementById('page-title').textContent = TITLES[v][1];
+    window.scrollTo({top:0,behavior:'smooth'});
+    closeSidebar();
+  });
+});
+
+function openSidebar(){
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-backdrop').classList.add('show');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('show');
+}
+document.getElementById('hamburger').addEventListener('click', openSidebar);
+document.getElementById('sidebar-backdrop').addEventListener('click', closeSidebar);
+
+/* ============================ KPI CARDS ============================ */
+let _sparkSeq = 0;
+const _pendingSparks = [];
+function kpiCard({title, value, meta, status, spark, sparkColor, variation, unit='', valueClass='text-slate-900'}){
+  const id = 'spk-' + (++_sparkSeq);
+  const arrow = variation>=0 ? '▲' : '▼';
+  const varColor = variation>=0 ? 'text-emerald-600' : 'text-rose-600';
+  _pendingSparks.push({id, spark, sparkColor});
+  return `
+    <div class="card p-4">
+      <div class="flex items-start justify-between">
+        <div class="text-[12px] font-semibold text-slate-700 leading-tight pr-2">${title}</div>
+        <span class="chip ${chipFor(status)}">${labelFor(status)}</span>
+      </div>
+      <div class="mt-3 flex items-baseline gap-2">
+        <div class="text-2xl font-extrabold ${valueClass} kpi-num">${value}<span class="text-base text-slate-400 font-bold">${unit}</span></div>
+        <div class="text-[11px] ${varColor} font-semibold">${arrow} ${Math.abs(variation).toFixed(1)}%</div>
+      </div>
+      <div class="text-[11px] text-slate-500 mt-1">Meta: <span class="font-semibold text-slate-700">${meta}</span></div>
+      <div class="spark-wrap mt-2"><canvas id="${id}"></canvas></div>
+    </div>
+  `;
+}
+function flushSparks(){
+  while(_pendingSparks.length){
+    const s = _pendingSparks.shift();
+    renderSpark(s.id, s.spark, s.sparkColor);
+  }
+}
+
+function renderSpark(id,data,color){
+  const ctx = document.getElementById(id); if(!ctx) return;
+  new Chart(ctx,{type:'line',data:{labels:data.map((_,i)=>i),datasets:[{data,borderColor:color,backgroundColor:color+'22',fill:true,tension:.35,pointRadius:0,borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}}}});
+}
+window.renderSpark = renderSpark;
+
+/* === Build cards per area === */
+function buildCardsComercial(){
+  const N = COM; const cur = 4; // May (index 4)
+  const sumNuevos = sumTo(N.nuevos, cur+1);
+  const sumCruzada = sumTo(N.cruzada, cur+1);
+  const sumRen = sumTo(N.renovaciones, cur+1);
+  const sumGw = sumTo(N.greenywave, cur+1);
+  const metaYTDPct = m => (m/12)*(cur+1);
+
+  const data = [
+    {title:'Ingresos nuevos', value:fmtMoneyM(sumNuevos*1e6), meta:'$6.000M anual',
+      status: semaphore(sumNuevos, metaYTDPct(N.metas.nuevos)*0.95),
+      spark:N.nuevos.slice(0,cur+1), sparkColor:COLORS.brand, variation:8.2},
+    {title:'Venta cruzada', value:fmtMoneyM(sumCruzada*1e6), meta:'$2.500M anual',
+      status: semaphore(sumCruzada, metaYTDPct(N.metas.cruzada)*0.9),
+      spark:N.cruzada.slice(0,cur+1), sparkColor:COLORS.violet, variation:14.5},
+    {title:'Renovaciones', value:fmtMoneyM(sumRen*1e6), meta:'$3.729,8M anual',
+      status: 'warn',
+      spark:N.renovaciones.slice(0,cur+1), sparkColor:COLORS.warn, variation:-6.3},
+    {title:'Greenywave', value:fmtMoneyM(sumGw*1e6), meta:'$1.575M anual',
+      status: 'warn',
+      spark:N.greenywave.slice(0,cur+1), sparkColor:COLORS.ok, variation:0},
+    {title:'Cobertura de pipeline', value:'4.6', unit:'x', meta:'≥ 4x meta',
+      status: 'ok',
+      spark:N.pipeline.slice(0,cur+1), sparkColor:COLORS.brandDeep, variation:4.5}
+  ];
+  document.getElementById('cards-comercial').innerHTML = data.map(kpiCard).join('');
+  flushSparks();
+}
+
+
+function buildCardsFinanciera(){
+  const cur = 4;
+  const data = [
+    {title:'Margen EBITDA', value:fmtPct(FIN.ebitda[cur]), meta:'≥ 12%', status: semaphore(FIN.ebitda[cur],12), spark:FIN.ebitda.slice(0,cur+1), sparkColor:COLORS.brand, variation:5.1},
+    {title:'Margen utilidad operacional', value:fmtPct(FIN.utilOp[cur]), meta:'≥ 15%', status: semaphore(FIN.utilOp[cur],15), spark:FIN.utilOp.slice(0,cur+1), sparkColor:COLORS.ok, variation:4.2},
+    {title:'Margen utilidad bruta', value:fmtPct(FIN.utilBruta[cur]), meta:'≥ 45%', status: semaphore(FIN.utilBruta[cur],45), spark:FIN.utilBruta.slice(0,cur+1), sparkColor:COLORS.violet, variation:2.7},
+    {title:'Facturación', value:fmtPct(FIN.facturacion[cur]), meta:'≥ 95%', status: semaphore(FIN.facturacion[cur],95), spark:FIN.facturacion.slice(0,cur+1), sparkColor:COLORS.brandDeep, variation:1.1},
+    {title:'Recaudo', value:fmtPct(FIN.recaudo[cur]), meta:'≥ 90%', status: semaphore(FIN.recaudo[cur],90), spark:FIN.recaudo.slice(0,cur+1), sparkColor:COLORS.ok, variation:1.1},
+    {title:'Personal competente', value:fmtPct(FIN.personal[cur]), meta:'≥ 80%', status: semaphore(FIN.personal[cur],80), spark:FIN.personal.slice(0,cur+1), sparkColor:COLORS.pink, variation:2.4}
+  ];
+  document.getElementById('cards-financiera').innerHTML = data.map(kpiCard).join('');
+  flushSparks();
+}
+
+function buildCardsProyectos(){
+  const cur = 4;
+  const data = [
+    {title:'Cumplimiento plan de ejecución', value:fmtPct(PRY.ejecucion[cur]), meta:'≥ 95%', status: semaphore(PRY.ejecucion[cur],95), spark:PRY.ejecucion.slice(0,cur+1), sparkColor:COLORS.brand, variation:1.0},
+    {title:'Consumo horas de desarrollo', value:fmtPct(PRY.horas[cur]), meta:'≤ 100%', status: semaphore(PRY.horas[cur],100,'lte'), spark:PRY.horas.slice(0,cur+1), sparkColor:COLORS.warn, variation:-1.0},
+    {title:'Avance económico de proyectos', value:fmtPct(PRY.avance[cur]), meta:'≥ 95%', status: semaphore(PRY.avance[cur],95), spark:PRY.avance.slice(0,cur+1), sparkColor:COLORS.violet, variation:2.2},
+    {title:'Habilitación de facturación', value:fmtPct(PRY.habilit[cur]), meta:'≥ 95%', status: semaphore(PRY.habilit[cur],95), spark:PRY.habilit.slice(0,cur+1), sparkColor:COLORS.ok, variation:0}
+  ];
+  document.getElementById('cards-proyectos').innerHTML = data.map(kpiCard).join('');
+  flushSparks();
+}
+
+function buildCardsSoluciones(){
+  const cur = 4;
+  const conf = SOL.confiabilidad[cur];
+  const defectos = +(100 - conf).toFixed(1);
+  document.getElementById('cards-soluciones').innerHTML = [
+    {title:'Confiabilidad del software', value:fmtPct(conf), meta:'≥ 90%', status: semaphore(conf,90), spark:SOL.confiabilidad.slice(0,cur+1), sparkColor:COLORS.brand, variation:1.0},
+    {title:'Defectos de calidad', value:fmtPct(defectos), meta:'≤ 10%', status: semaphore(defectos,10,'lte'), spark:SOL.confiabilidad.slice(0,cur+1).map(v=>+(100-v).toFixed(1)), sparkColor:COLORS.warn, variation:-9.9},
+    {title:'Tickets abiertos', value:SOL.abiertos.toString(), meta:'Backlog total', status:'warn', valueClass:'text-rose-600', spark:[212,205,198,193,188], sparkColor:COLORS.bad, variation:-2.6},
+    {title:'Abiertas calidad', value:SOL.calidad.toString(), meta:'35,6% del backlog', status:'warn', valueClass:'text-rose-600', spark:[80,76,73,70,67], sparkColor:COLORS.warn, variation:-4.3},
+    {title:'Abiertas servicios', value:SOL.servicios.toString(), meta:'58,5% del backlog', status:'ok', valueClass:'text-rose-600', spark:[118,116,114,112,110], sparkColor:COLORS.brandDeep, variation:-1.8}
+  ].map(kpiCard).join('');
+  flushSparks();
+}
+
+function buildCardsIds(){
+  const cur = 4;
+  document.getElementById('cards-ids').innerHTML = [
+    {title:'Nivel de confiabilidad del software', value:fmtPct(IDS.confiabilidad[cur]), meta:'≥ 90%', status: semaphore(IDS.confiabilidad[cur],90), spark:IDS.confiabilidad.slice(0,cur+1), sparkColor:COLORS.brand, variation:1.1},
+    {title:'Disponibilidad de soluciones', value:fmtPct(IDS.disponibilidad[cur]), meta:'≥ 90%', status: semaphore(IDS.disponibilidad[cur],90), spark:IDS.disponibilidad.slice(0,cur+1), sparkColor:COLORS.ok, variation:2.1}
+  ].map(kpiCard).join('');
+  flushSparks();
+}
+
+/* ============================ CHART HELPERS ============================ */
+Chart.defaults.font.family = "'Inter',sans-serif";
+Chart.defaults.color = '#475569';
+Chart.defaults.font.size = 11;
+
+const gridLight = {grid:{color:'#F1F5F9',drawBorder:false}, ticks:{color:'#94A3B8'}};
+
+function lineChart(id, datasets, opts={}){
+  return new Chart(document.getElementById(id),{
+    type:'line',
+    data:{labels:MONTHS, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:opts.legend??true,position:'bottom',labels:{usePointStyle:true,boxWidth:8,padding:14}},tooltip:{backgroundColor:'#0F172A',padding:10,titleFont:{size:12},bodyFont:{size:11}}},
+      scales:{x:gridLight,y:{...gridLight, ...(opts.yOpts||{})}}
+    }
+  });
+}
+
+function barChart(id, datasets, opts={}){
+  return new Chart(document.getElementById(id),{
+    type:'bar',
+    data:{labels:opts.labels||MONTHS, datasets},
+    options:{
+      indexAxis: opts.horizontal ? 'y' : 'x',
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:opts.legend??true,position:'bottom',labels:{usePointStyle:true,boxWidth:8,padding:14}},tooltip:{backgroundColor:'#0F172A'}},
+      scales:{x:{...gridLight, stacked:opts.stacked||false,...(opts.xOpts||{})},y:{...gridLight, stacked:opts.stacked||false,...(opts.yOpts||{})}}
+    }
+  });
+}
+
+function doughnut(id, labels, data, colors, opts={}){
+  return new Chart(document.getElementById(id),{
+    type:'doughnut',
+    data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:0,hoverOffset:6}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:opts.cutout||'70%',plugins:{legend:{display:opts.legend??true,position:'bottom',labels:{usePointStyle:true,boxWidth:8,padding:12}}}}
+  });
+}
+
+function gauge(id, value, color){
+  const remaining = 100 - value;
+  return new Chart(document.getElementById(id),{
+    type:'doughnut',
+    data:{datasets:[{data:[value,remaining],backgroundColor:[color,'#E2E8F0'],borderWidth:0,circumference:270,rotation:225}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'78%',plugins:{legend:{display:false},tooltip:{enabled:false}}}
+  });
+}
+
+/* ============================ RESUMEN EJECUTIVO ============================ */
+function renderExec(){
+  // Spark
+  new Chart(document.getElementById('exec-spark'),{
+    type:'line',
+    data:{labels:MONTHS.slice(0,5),datasets:[{data:[74,76,79,80,82],borderColor:COLORS.brand,backgroundColor:'rgba(14,165,233,.15)',fill:true,tension:.4,pointRadius:0,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}}}
+  });
+
+  // Areas
+  barChart('exec-areas',[
+    {label:'Cumplimiento %', data:[78, 88, 94, 91, 94], backgroundColor:['#0EA5E9','#10B981','#F59E0B','#8B5CF6','#EC4899'], borderRadius:6, maxBarThickness:48}
+  ],{labels:['Comercial','Adm. y Fin.','Proyectos','Soluciones','IDS'],legend:false,yOpts:{max:100,ticks:{callback:v=>v+'%'}}});
+
+  // Donut
+  doughnut('exec-donut',['Cumplidos','En riesgo','No cumplidos'],[12,4,2],[COLORS.ok,COLORS.warn,COLORS.bad]);
+
+  // Line
+  lineChart('exec-line',[
+    {label:'Real',data:[74,76,79,80,82,null,null,null,null,null,null,null],borderColor:COLORS.ok,backgroundColor:'rgba(16,185,129,.12)',fill:true,tension:.35,pointBackgroundColor:COLORS.ok,pointRadius:4,borderWidth:3},
+    {label:'Meta',data:Array(12).fill(90),borderColor:COLORS.brand,borderDash:[6,4],pointRadius:0,borderWidth:2,fill:false}
+  ],{yOpts:{min:60,max:100,ticks:{callback:v=>v+'%'}}});
+
+  // Top
+  const top = [
+    {n:'Disponibilidad de soluciones',a:'IDS',v:96.4,col:COLORS.ok},
+    {n:'Ingresos por Greenywave (mock)',a:'Comercial',v:100,col:COLORS.brand},
+    {n:'Plan de ejecución de proyectos',a:'Proyectos',v:96,col:COLORS.warn},
+    {n:'Habilitación de facturación',a:'Proyectos',v:95,col:COLORS.warn},
+    {n:'Recaudo',a:'Adm. Fin.',v:91.7,col:COLORS.ok}
+  ];
+  document.getElementById('exec-top').innerHTML = top.map(t=>`
+    <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
+      <div class="w-1.5 h-8 rounded-full" style="background:${t.col}"></div>
+      <div class="flex-1 min-w-0"><div class="text-sm text-slate-800 font-medium truncate">${t.n}</div><div class="text-[11px] text-slate-500">${t.a}</div></div>
+      <div class="text-sm font-bold text-slate-800 kpi-num">${t.v}%</div>
+    </div>
+  `).join('');
+
+  // Bottom (a mejorar)
+  const bot = [
+    {n:'Renovaciones',a:'Comercial',v:'$405M',meta:'$1.554M YTD',pct:26,st:'bad'},
+    {n:'Margen EBITDA',a:'Adm. Fin.',v:'12.4%',meta:'≥ 12%',pct:103,st:'warn'},
+    {n:'Facturación',a:'Adm. Fin.',v:'95%',meta:'≥ 95%',pct:100,st:'warn'},
+    {n:'Avance económico proyectos',a:'Proyectos',v:'92%',meta:'≥ 95%',pct:97,st:'warn'},
+    {n:'Confiabilidad software (Mar)',a:'Soluciones',v:'88.9%',meta:'≥ 90%',pct:99,st:'warn'}
+  ];
+  document.getElementById('exec-bottom').innerHTML = bot.map(b=>`
+    <tr class="table-row border-b border-slate-100">
+      <td class="py-2.5 text-slate-800 font-medium">${b.n}</td>
+      <td class="py-2.5 text-slate-500">${b.a}</td>
+      <td class="py-2.5 text-right font-bold text-slate-800 kpi-num">${b.v}</td>
+      <td class="py-2.5 text-right text-slate-500">${b.meta}</td>
+      <td class="py-2.5 text-right"><span class="chip ${chipFor(b.st)}">${labelFor(b.st)}</span></td>
+    </tr>
+  `).join('');
+
+  // Radar — Perspectivas BSC
+  new Chart(document.getElementById('exec-radar'),{
+    type:'radar',
+    data:{
+      labels:['Financiera','Cliente','Procesos','Aprendizaje','Crecimiento'],
+      datasets:[
+        {label:'Real',data:[88,91,93,84,78],backgroundColor:'rgba(14,165,233,.20)',borderColor:COLORS.brand,pointBackgroundColor:COLORS.brand,borderWidth:2},
+        {label:'Meta',data:[90,90,95,80,90],backgroundColor:'rgba(16,185,129,.10)',borderColor:COLORS.ok,borderDash:[4,4],pointBackgroundColor:COLORS.ok,borderWidth:2}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8,padding:14}}},scales:{r:{min:50,max:100,grid:{color:'#E2E8F0'},angleLines:{color:'#E2E8F0'},pointLabels:{font:{size:11,weight:'600'},color:'#334155'},ticks:{display:false,stepSize:10}}}}
+  });
+}
+
+/* ============================ COMERCIAL ============================ */
+function renderComercial(){
+  buildCardsComercial();
+
+  barChart('com-stack',[
+    {label:'Nuevos',data:COM.nuevos,backgroundColor:COLORS.brand,borderRadius:4,stack:'s'},
+    {label:'Venta cruzada',data:COM.cruzada,backgroundColor:COLORS.violet,borderRadius:4,stack:'s'},
+    {label:'Renovaciones',data:COM.renovaciones,backgroundColor:COLORS.warn,borderRadius:4,stack:'s'},
+    {label:'Greenywave',data:COM.greenywave,backgroundColor:COLORS.ok,borderRadius:4,stack:'s'}
+  ],{stacked:true,yOpts:{ticks:{callback:v=>'$'+v+'M'}}});
+
+  const totalYTD = COM.nuevos.reduce((a,b)=>a+b,0)+COM.cruzada.reduce((a,b)=>a+b,0)+COM.renovaciones.reduce((a,b)=>a+b,0)+COM.greenywave.reduce((a,b)=>a+b,0);
+  doughnut('com-donut',['Nuevos','Venta cruzada','Renovaciones','Greenywave'],
+    [COM.nuevos.reduce((a,b)=>a+b,0),COM.cruzada.reduce((a,b)=>a+b,0),COM.renovaciones.reduce((a,b)=>a+b,0),COM.greenywave.reduce((a,b)=>a+b,0)],
+    [COLORS.brand,COLORS.violet,COLORS.warn,COLORS.ok]);
+  document.getElementById('com-total').textContent = '$' + totalYTD.toLocaleString('es-CO') + 'M proy. anual';
+
+  // Acumulado vs meta
+  const total = COM.nuevos.map((_,i)=> COM.nuevos[i]+COM.cruzada[i]+COM.renovaciones[i]+COM.greenywave[i]);
+  const acum = cumulative(total);
+  const metaAnual = 13804.8;
+  const metaAcum = MONTHS.map((_,i)=> (metaAnual/12)*(i+1));
+
+  lineChart('com-acum',[
+    {label:'Acumulado real',data:acum,borderColor:COLORS.brand,backgroundColor:'rgba(14,165,233,.15)',fill:true,tension:.3,pointBackgroundColor:COLORS.brand,pointRadius:3,borderWidth:3},
+    {label:'Meta acumulada',data:metaAcum,borderColor:COLORS.ok,borderDash:[6,4],pointRadius:0,borderWidth:2}
+  ],{yOpts:{ticks:{callback:v=>'$'+(v/1000).toFixed(1)+'k M'}}});
+
+  gauge('com-gauge', 92, COLORS.ok); // 4.6/5 = 92%
+}
+
+/* ============================ FINANCIERA ============================ */
+function renderFinanciera(){
+  buildCardsFinanciera();
+
+  lineChart('fin-margenes',[
+    {label:'EBITDA',data:FIN.ebitda,borderColor:COLORS.brand,backgroundColor:'rgba(14,165,233,.10)',fill:true,tension:.3,pointRadius:3,borderWidth:2.5},
+    {label:'Utilidad operacional',data:FIN.utilOp,borderColor:COLORS.ok,backgroundColor:'rgba(16,185,129,.08)',fill:false,tension:.3,pointRadius:3,borderWidth:2.5},
+    {label:'Utilidad bruta',data:FIN.utilBruta,borderColor:COLORS.violet,backgroundColor:'rgba(139,92,246,.08)',fill:false,tension:.3,pointRadius:3,borderWidth:2.5},
+    {label:'Meta EBITDA (12%)',data:Array(12).fill(12),borderColor:COLORS.brand,borderDash:[4,4],pointRadius:0,borderWidth:1.5}
+  ],{yOpts:{ticks:{callback:v=>v+'%'}}});
+
+  // EBITDA acum vs meta
+  lineChart('fin-ebitda',[
+    {label:'EBITDA mensual',data:FIN.ebitda,borderColor:COLORS.brand,backgroundColor:'rgba(14,165,233,.18)',fill:true,tension:.3,pointBackgroundColor:COLORS.brand,pointRadius:3,borderWidth:2.5},
+    {label:'Meta 12%',data:Array(12).fill(12),borderColor:COLORS.bad,borderDash:[5,5],pointRadius:0,borderWidth:2}
+  ],{yOpts:{min:0,max:20,ticks:{callback:v=>v+'%'}}});
+
+  // Facturación vs Recaudo
+  new Chart(document.getElementById('fin-factrec'),{
+    type:'bar',
+    data:{labels:MONTHS,datasets:[
+      {label:'Facturación',data:FIN.facturacion,backgroundColor:COLORS.brand,borderRadius:4},
+      {label:'Recaudo',data:FIN.recaudo,backgroundColor:COLORS.ok,borderRadius:4},
+      {type:'line',label:'Meta 95%',data:Array(12).fill(95),borderColor:COLORS.bad,borderDash:[5,5],pointRadius:0,borderWidth:2}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8,padding:14}}},scales:{x:gridLight,y:{...gridLight,min:70,max:100,ticks:{callback:v=>v+'%'}}}}
+  });
+}
+
+/* ============================ PROYECTOS ============================ */
+function renderProyectos(){
+  buildCardsProyectos();
+
+  lineChart('pry-line',[
+    {label:'Plan de ejecución',data:PRY.ejecucion,borderColor:COLORS.brand,backgroundColor:'rgba(14,165,233,.10)',fill:false,tension:.3,pointRadius:3,borderWidth:2.5},
+    {label:'Avance económico',data:PRY.avance,borderColor:COLORS.violet,fill:false,tension:.3,pointRadius:3,borderWidth:2.5},
+    {label:'Habilitación facturación',data:PRY.habilit,borderColor:COLORS.ok,fill:false,tension:.3,pointRadius:3,borderWidth:2.5},
+    {label:'Meta 95%',data:Array(12).fill(95),borderColor:COLORS.bad,borderDash:[5,5],pointRadius:0,borderWidth:1.5}
+  ],{yOpts:{min:80,max:100,ticks:{callback:v=>v+'%'}}});
+
+  // Horas
+  new Chart(document.getElementById('pry-horas'),{
+    type:'bar',
+    data:{labels:MONTHS,datasets:[
+      {label:'Consumo horas',data:PRY.horas,backgroundColor:PRY.horas.map(v=>v<=100?COLORS.ok:COLORS.bad),borderRadius:4},
+      {type:'line',label:'Meta ≤100%',data:Array(12).fill(100),borderColor:COLORS.warn,borderDash:[5,5],pointRadius:0,borderWidth:2}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8,padding:14}}},scales:{x:gridLight,y:{...gridLight,min:85,max:110,ticks:{callback:v=>v+'%'}}}}
+  });
+
+  gauge('pry-g1', 96, COLORS.ok);
+  gauge('pry-g2', 92, COLORS.warn);
+  gauge('pry-g3', 95, COLORS.ok);
+}
+
+/* ============================ SOLUCIONES ============================ */
+function renderSoluciones(){
+  buildCardsSoluciones();
+
+  lineChart('sol-line',[
+    {label:'Confiabilidad',data:SOL.confiabilidad,borderColor:COLORS.brand,backgroundColor:'rgba(14,165,233,.15)',fill:true,tension:.35,pointBackgroundColor:COLORS.brand,pointRadius:4,borderWidth:3},
+    {label:'Meta 90%',data:Array(12).fill(90),borderColor:COLORS.bad,borderDash:[5,5],pointRadius:0,borderWidth:2}
+  ],{yOpts:{min:80,max:100,ticks:{callback:v=>v+'%'}}});
+
+  gauge('sol-gauge', 91.3, COLORS.ok);
+
+  barChart('sol-recurso',[
+    {label:'Tickets abiertos',data:SOL.recursos.data,backgroundColor:COLORS.brand,borderRadius:4,maxBarThickness:18}
+  ],{labels:SOL.recursos.labels,horizontal:true,legend:false,xOpts:{ticks:{precision:0}}});
+
+  barChart('sol-accion',[
+    {label:'Tickets abiertos',data:SOL.acciones.data,backgroundColor:COLORS.brand,borderRadius:4,maxBarThickness:18}
+  ],{labels:SOL.acciones.labels,horizontal:true,legend:false,xOpts:{ticks:{precision:0}}});
+
+  barChart('sol-cliente',[
+    {label:'Tickets abiertos',data:SOL.clientes.data,backgroundColor:COLORS.brand,borderRadius:6,maxBarThickness:32}
+  ],{labels:SOL.clientes.labels,legend:false,yOpts:{ticks:{precision:0}}});
+
+  new Chart(document.getElementById('sol-producto'),{
+    type:'doughnut',
+    data:{labels:SOL.productos.labels,datasets:[{data:SOL.productos.data,backgroundColor:SOL.productos.colors,borderColor:'#FFFFFF',borderWidth:2,hoverOffset:6}]},
+    options:{
+      responsive:true,maintainAspectRatio:false,cutout:'62%',
+      plugins:{
+        legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8,padding:10,
+          generateLabels:(chart)=>{
+            const d = chart.data;
+            const total = d.datasets[0].data.reduce((a,b)=>a+b,0);
+            return d.labels.map((l,i)=>({
+              text:`${l} · ${d.datasets[0].data[i]} (${(d.datasets[0].data[i]/total*100).toFixed(1).replace('.',',')}%)`,
+              fillStyle:d.datasets[0].backgroundColor[i],
+              strokeStyle:d.datasets[0].backgroundColor[i],
+              pointStyle:'circle', index:i
+            }));
+          }
+        }},
+        tooltip:{backgroundColor:'#0F172A'}
+      }
+    }
+  });
+}
+
+/* ============================ IDS ============================ */
+function renderIds(){
+  buildCardsIds();
+
+  lineChart('ids-conf',[
+    {label:'Confiabilidad',data:IDS.confiabilidad,borderColor:COLORS.brand,backgroundColor:'rgba(14,165,233,.18)',fill:true,tension:.35,pointBackgroundColor:COLORS.brand,pointRadius:4,borderWidth:3},
+    {label:'Meta 90%',data:Array(12).fill(90),borderColor:COLORS.bad,borderDash:[5,5],pointRadius:0,borderWidth:2}
+  ],{yOpts:{min:80,max:100,ticks:{callback:v=>v+'%'}}});
+
+  lineChart('ids-disp',[
+    {label:'Disponibilidad',data:IDS.disponibilidad,borderColor:COLORS.ok,backgroundColor:'rgba(16,185,129,.18)',fill:true,tension:.35,pointBackgroundColor:COLORS.ok,pointRadius:4,borderWidth:3},
+    {label:'Meta 90%',data:Array(12).fill(90),borderColor:COLORS.bad,borderDash:[5,5],pointRadius:0,borderWidth:2}
+  ],{yOpts:{min:80,max:100,ticks:{callback:v=>v+'%'}}});
+
+  gauge('ids-g1', 93, COLORS.ok);
+  gauge('ids-g2', 96, COLORS.ok);
+
+  // Comparativo trimestres
+  barChart('ids-comp',[
+    {label:'Confiabilidad',data:[89.7, 92.7, 93.7, 94.7],backgroundColor:COLORS.brand,borderRadius:6,maxBarThickness:28},
+    {label:'Disponibilidad',data:[95, 96.7, 97, 97.3],backgroundColor:COLORS.ok,borderRadius:6,maxBarThickness:28}
+  ],{labels:['Q1','Q2','Q3','Q4'],yOpts:{min:80,max:100,ticks:{callback:v=>v+'%'}}});
+}
+
+/* ============================ INIT ============================ */
+window.addEventListener('DOMContentLoaded',()=>{
+  renderExec();
+  renderComercial();
+  renderFinanciera();
+  renderProyectos();
+  renderSoluciones();
+  renderIds();
+});
+</script>
+</body>
+</html>
