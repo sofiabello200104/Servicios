@@ -140,6 +140,19 @@
         body: JSON.stringify(form)
       });
       var body = await res.json();
+      if (body.vercelReadOnly) {
+        // Running on Vercel: config is managed via environment variables,
+        // not by writing to disk. Surface a friendly, actionable message.
+        statusEl.innerHTML =
+          '<span class="tag-warn" style="white-space:normal;max-width:340px;display:inline-block;">' +
+          'Este deployment es de solo lectura (Vercel). ' +
+          'Configurá <code>SOFIA_ODATA_URL</code>, <code>SOFIA_ODATA_USER</code>, ' +
+          '<code>SOFIA_ODATA_PASS</code> y <code>SOFIA_ODATA_TEMPLATE</code> ' +
+          'como variables de entorno en el panel de Vercel y hacé un nuevo deploy.' +
+          '</span>';
+        saveBtn.disabled = false;
+        return;
+      }
       if (!res.ok || !body.ok) throw new Error(body.error || 'No se pudo guardar la configuración.');
       statusEl.innerHTML = '<span class="tag-ok">Configuración guardada</span>';
     } catch (err) {

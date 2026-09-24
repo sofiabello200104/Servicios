@@ -1,0 +1,6 @@
+﻿{
+  "rewrites": [
+    { "source": "/api/config/test", "destination": "/api/config-test" },
+    { "source": "/odata-proxy",     "destination": "/api/odata-proxy" }
+  ]
+}
