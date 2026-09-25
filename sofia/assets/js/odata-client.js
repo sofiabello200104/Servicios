@@ -76,7 +76,7 @@
   // nunca en el navegador). El servidor arma la URL final vía
   // buildTemplateRequestUrl() y adjunta el Authorization Basic él mismo.
   async function fetchTemplate() {
-    return toRows(await getJson('/odata-proxy'));
+    return toRows(await getJson('/api/odata-proxy'));
   }
 
   window.SOFIA_ODATA = {

@@ -94,7 +94,7 @@
     var O = _root.SOFIA_ODATA;
     var selectFields = [sourceDef.recursoField, sourceDef.fechaInicialField, sourceDef.horaInicialField, sourceDef.horaFinalField];
     var url = O.buildTemplateUrl(endpointUrl, sourceDef.templateName) + '&$select=' + encodeURIComponent(selectFields.join(','));
-    var data = await O.getJson('/odata-proxy?url=' + encodeURIComponent(url));
+    var data = await O.getJson('/api/odata-proxy?url=' + encodeURIComponent(url));
     return O.toRows(data).map(function (row) { return normalizeExtraRow(row, sourceDef); });
   }
 

@@ -1,5 +1,0 @@
-﻿{
-  "rewrites": [
-    { "source": "/odata-proxy", "destination": "/api/odata-proxy" }
-  ]
-}
