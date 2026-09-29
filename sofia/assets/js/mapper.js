@@ -1245,18 +1245,33 @@
     return sorted.length ? sorted[0] : null;
   }
 
+  // SN_CHART_DIMENSIONS: the four clickable charts in Segundo Nivel, and
+  // the normalized ticket field each one's bars/segments group by --
+  // shared by the chart-click selection (filters.selectedChartDimension)
+  // and the table/insight narrowing below.
+  var SN_CHART_DIMENSIONS = {
+    recurso: 'recursoAccion',
+    cliente: 'cliente',
+    diagnostico: 'diagnostico',
+    producto: 'producto'
+  };
+
   // buildSegundoNivel(tickets, filters): filters = { recursos: string[],
-  // accion: string, selectedResource: string|null }. tickets must already
-  // be normalized.
+  // accion: string, cliente: string, selectedChartDimension: string|null,
+  // selectedChartValue: string|null }. tickets must already be normalized.
   //   - filters.recursos: free multi-select over Recurso_Accion, isAllSelector
   //     semantics (empty/['all'] = no filter) -- same as Capacidad's Recursos.
   //   - filters.accion: one of SEGUNDO_NIVEL_ACCION_OPTIONS' values, or
   //     'all'/falsy for no narrowing (the universe is already confined to
   //     the five second-level acciones, so "all" never leaks outside it).
-  //   - filters.selectedResource: set by the bar-click interaction on the
-  //     Recurso_Accion chart -- narrows only `rows`/`insight` below, never
-  //     the charts themselves (clicking a bar highlights/filters the table,
-  //     it doesn't make the other bars disappear).
+  //   - filters.cliente: exact match against Cliente, or 'all'/falsy for no
+  //     narrowing -- ignored entirely while hasCliente is false.
+  //   - filters.selectedChartDimension/selectedChartValue: set by clicking a
+  //     bar/segment on any of the four charts -- narrows only `rows`/
+  //     `insight` below, never the charts themselves. With no selection,
+  //     `rows` is empty (the table only shows a chosen slice) while
+  //     `insight` still reports on the whole filtered universe
+  //     ("Vista general").
   function buildSegundoNivel(tickets, filters) {
     filters = filters || {};
     tickets = Array.isArray(tickets) ? tickets : [];
@@ -1268,20 +1283,25 @@
       return t.estado === 1 && SEGUNDO_NIVEL_ACCIONES.indexOf(t.accionNorm) !== -1;
     });
 
-    // recursoOptions reflects the whole second-level universe, not narrowed
-    // by the currently applied filters -- same "options don't shrink as you
-    // filter" pattern as buildActivos' requerimientoOptions.
+    // recursoOptions/clienteOptions reflect the whole second-level universe,
+    // not narrowed by the currently applied filters -- same "options don't
+    // shrink as you filter" pattern as buildActivos' requerimientoOptions.
     var recursoOptions = Array.from(new Set(universe.map(function (t) { return t.recursoAccion; }))).sort();
+    var clienteOptions = hasCliente
+      ? Array.from(new Set(universe.map(function (t) { return t.cliente; }).filter(function (c) { return c != null; }))).sort()
+      : [];
 
     var recursosFilter = isAllSelector(filters.recursos) ? null : filters.recursos;
     var accionGroup = null;
     if (filters.accion && filters.accion !== 'all') {
       accionGroup = SEGUNDO_NIVEL_ACCION_OPTIONS.find(function (o) { return o.value === filters.accion; }) || null;
     }
+    var clienteFilter = (hasCliente && filters.cliente && filters.cliente !== 'all') ? filters.cliente : null;
 
     var filtered = universe.filter(function (t) {
       if (recursosFilter && recursosFilter.indexOf(t.recursoAccion) === -1) return false;
       if (accionGroup && accionGroup.accionesNorm.indexOf(t.accionNorm) === -1) return false;
+      if (clienteFilter && t.cliente !== clienteFilter) return false;
       return true;
     });
 
@@ -1296,11 +1316,16 @@
       if (hasDiagnostico) diagnosticoCount[t.diagnostico] = (diagnosticoCount[t.diagnostico] || 0) + 1;
     });
 
-    // Table + insight panel: filtered further narrowed by the bar-click
-    // selection, per the division of labor documented above.
-    var tableTickets = filters.selectedResource
-      ? filtered.filter(function (t) { return t.recursoAccion === filters.selectedResource; })
-      : filtered;
+    // selectedField: the normalized ticket field the current chart
+    // selection narrows against, or null when nothing is selected.
+    var selectedField = filters.selectedChartDimension ? SN_CHART_DIMENSIONS[filters.selectedChartDimension] : null;
+    var hasSelection = !!(selectedField && filters.selectedChartValue);
+
+    // Table: empty until a bar/segment is clicked, then narrowed to that
+    // exact dimension value.
+    var tableTickets = hasSelection
+      ? filtered.filter(function (t) { return t[selectedField] === filters.selectedChartValue; })
+      : [];
 
     var rows = tableTickets.map(function (t) {
       return {
@@ -1314,24 +1339,26 @@
     });
     rows.sort(function (a, b) { return String(a.id).localeCompare(String(b.id), undefined, { numeric: true }); });
 
-    var insight = null;
-    if (filters.selectedResource) {
-      var insightProductoCount = {};
-      var insightDiagnosticoCount = {};
-      var insightAccionCount = {};
-      tableTickets.forEach(function (t) {
-        insightProductoCount[t.producto] = (insightProductoCount[t.producto] || 0) + 1;
-        insightAccionCount[t.accionNorm] = (insightAccionCount[t.accionNorm] || 0) + 1;
-        if (hasDiagnostico) insightDiagnosticoCount[t.diagnostico] = (insightDiagnosticoCount[t.diagnostico] || 0) + 1;
-      });
-      insight = {
-        recurso: filters.selectedResource,
-        total: tableTickets.length,
-        topProducto: topEntry(insightProductoCount),
-        topDiagnostico: hasDiagnostico ? topEntry(insightDiagnosticoCount) : null,
-        topAccion: topEntry(insightAccionCount)
-      };
-    }
+    // Insight panel: unlike the table, always reports on something -- the
+    // selected slice, or the whole filtered universe ("Vista general").
+    var insightBasis = hasSelection ? tableTickets : filtered;
+    var insightProductoCount = {};
+    var insightDiagnosticoCount = {};
+    var insightAccionCount = {};
+    insightBasis.forEach(function (t) {
+      insightProductoCount[t.producto] = (insightProductoCount[t.producto] || 0) + 1;
+      insightAccionCount[t.accionNorm] = (insightAccionCount[t.accionNorm] || 0) + 1;
+      if (hasDiagnostico) insightDiagnosticoCount[t.diagnostico] = (insightDiagnosticoCount[t.diagnostico] || 0) + 1;
+    });
+    var insight = {
+      isGeneral: !hasSelection,
+      dimension: hasSelection ? filters.selectedChartDimension : null,
+      value: hasSelection ? filters.selectedChartValue : null,
+      total: insightBasis.length,
+      topProducto: topEntry(insightProductoCount),
+      topDiagnostico: hasDiagnostico ? topEntry(insightDiagnosticoCount) : null,
+      topAccion: topEntry(insightAccionCount)
+    };
 
     return {
       kpis: { total: filtered.length },
@@ -1342,8 +1369,10 @@
       hasCliente: hasCliente,
       hasDiagnostico: hasDiagnostico,
       recursoOptions: recursoOptions,
+      clienteOptions: clienteOptions,
       accionOptions: SEGUNDO_NIVEL_ACCION_OPTIONS.map(function (o) { return o.value; }),
       rows: rows,
+      hasSelection: hasSelection,
       insight: insight
     };
   }

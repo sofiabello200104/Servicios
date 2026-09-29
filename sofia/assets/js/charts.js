@@ -205,6 +205,10 @@
       options: {
         responsive: true, maintainAspectRatio: false,
         cutout: opts.cutout || '65%',
+        // opts.onClick(event, elements, chart): opt-in segment-click
+        // passthrough (Segundo Nivel's Diagnostico/Producto donuts), same
+        // pattern as barChart's onClick -- omitted by every other doughnut.
+        onClick: opts.onClick || undefined,
         plugins: {
           // legendPosition: only Tickets Activos' chart_tickets_producto asks
           // for a right-side legend today -- every other doughnut keeps the

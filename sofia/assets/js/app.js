@@ -260,6 +260,8 @@
 
     const filterSnAccion = document.getElementById('filter-sn-accion');
     if (filterSnAccion) filterSnAccion.addEventListener('change', () => window.SOFIA_RENDER.rerenderSegundoNivelWithCurrentFilters());
+    const filterSnCliente = document.getElementById('filter-sn-cliente');
+    if (filterSnCliente) filterSnCliente.addEventListener('change', () => window.SOFIA_RENDER.rerenderSegundoNivelWithCurrentFilters());
     const btnSnLimpiar = document.getElementById('btn-sn-limpiar');
     if (btnSnLimpiar) btnSnLimpiar.addEventListener('click', () => window.SOFIA_RENDER.clearSegundoNivelFilters());
     window.SOFIA_RENDER.wireSnRecursosMultiSelect();
