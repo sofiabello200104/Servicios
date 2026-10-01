@@ -88,7 +88,11 @@ module.exports = function handler(req, res) {
     path: target.pathname + (target.search || ''),
     method: 'GET',
     headers: fwdHeaders,
-    timeout: 45000
+    // 150s: the full ID12086_Tickets_medidor entity takes ~60s upstream
+    // (same as an Excel Power Query refresh), and the server ignores $top,
+    // so the payload can't be trimmed. Vercel's default function max
+    // duration (300s with Fluid compute) stays above this.
+    timeout: 150000
   };
 
   const proxyReq = transport.request(options, (proxyRes) => {

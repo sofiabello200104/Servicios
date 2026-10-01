@@ -199,11 +199,12 @@ function performODataRequest(targetUrl, authUser, authPass, res) {
     path: target.pathname + (target.search || ''),
     method: 'GET',
     headers: fwdHeaders,
-    // 45s, not 20s: ID12096_Plantilla_tarea_con_revision (one of Capacidad's
-    // extra OData sources) alone was measured at ~20s from this upstream
-    // even with no other request in flight, so 20s produced spurious 504s
-    // on that entity regardless of concurrency.
-    timeout: 45000
+    // 150s: the full ID12086_Tickets_medidor entity takes ~60s upstream
+    // (same as an Excel Power Query refresh), and the server ignores $top,
+    // so the payload can't be trimmed. The earlier 45s limit (raised from
+    // 20s for ID12096_Plantilla_tarea_con_revision) produced 504s once the
+    // tickets entity grew past it.
+    timeout: 150000
   };
 
   const proxyReq = transport.request(options, (proxyRes) => {
