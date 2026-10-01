@@ -199,7 +199,7 @@ function performODataRequest(targetUrl, authUser, authPass, res) {
     path: target.pathname + (target.search || ''),
     method: 'GET',
     headers: fwdHeaders,
-    // 45s, not 20s: ID12096_Plantilla_tarea_con_rev (one of Capacidad's
+    // 45s, not 20s: ID12096_Plantilla_tarea_con_revision (one of Capacidad's
     // extra OData sources) alone was measured at ~20s from this upstream
     // even with no other request in flight, so 20s produced spurious 504s
     // on that entity regardless of concurrency.
