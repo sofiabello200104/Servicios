@@ -9,6 +9,7 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const { URL } = require('url');
 
 const ROOT = __dirname;
@@ -168,78 +169,137 @@ function readJsonBody(req) {
 
 /* ==================== OData proxy core ====================
    Adapted from the reference performODataRequest: same host-allowlist +
-   20s timeout + "never echo upstream error text to the client" posture.
-   Adapted to a plain http Agent (this server never speaks https to a
-   client — no certs here) but still dials out over https OR http depending
-   on the target URL's own protocol, since the OData source may be either. */
-function performODataRequest(targetUrl, authUser, authPass, res) {
+   "never echo upstream error text to the client" posture. Dials out over
+   https OR http depending on the target URL's own protocol.
+
+   Measured on 2026-09-30 against the live feed: the full
+   ID12086_Tickets_medidor entity (5,415 rows, 26 columns, ~5 MB) takes
+   ~165s before the first byte, and the upstream ignores both $top and
+   $select, so the payload can't be trimmed at the source. Hence:
+   - a 280s upstream timeout (above the measured ~165s);
+   - an in-memory cache per target URL: answers come from the last good
+     copy, which is refreshed in the background once older than
+     ODATA_CACHE_FRESH_MS, so only the very first load waits ~3 minutes;
+   - one shared in-flight request per target URL, so concurrent visitors
+     never fire duplicate upstream requests (the upstream cannot handle
+     concurrent requests under the same credentials);
+   - gzip on the way to the browser (~5 MB -> ~0.3 MB). */
+const ODATA_UPSTREAM_TIMEOUT_MS = 280000;
+const ODATA_CACHE_FRESH_MS = 15 * 60 * 1000;
+const _odataCache = new Map();    // key -> { gzBody, contentType, fetchedAt }
+const _odataInFlight = new Map(); // key -> Promise<{ ok, entry } | { ok: false, status, error }>
+
+// Validates a target URL against the host allowlist. Returns the parsed URL,
+// or { status, error } for the caller to send.
+function validateODataTarget(targetUrl) {
   let target;
   try { target = new URL(targetUrl); }
-  catch (e) {
-    sendJson(res, 400, { error: 'URL inválida.' });
-    return;
-  }
+  catch (e) { return { status: 400, error: 'URL inválida.' }; }
+  if (!ALLOWED_ODATA_HOSTS.includes(target.hostname)) return { status: 403, error: 'Host no permitido.' };
+  return { target };
+}
 
-  if (!ALLOWED_ODATA_HOSTS.includes(target.hostname)) {
-    sendJson(res, 403, { error: 'Host no permitido.' });
-    return;
-  }
+// Fetches one target from the upstream and resolves (never rejects) with
+// { ok: true, entry } on 2xx, or { ok: false, status, error } otherwise.
+function fetchODataUpstream(target, authUser, authPass) {
+  return new Promise((resolve) => {
+    const isHttps = target.protocol === 'https:';
+    const transport = isHttps ? https : http;
 
-  const isHttps = target.protocol === 'https:';
-  const transport = isHttps ? https : http;
-
-  const fwdHeaders = { Accept: 'application/json', 'User-Agent': 'SOFIA-Dashboard/1.0' };
-  if (authUser) {
-    fwdHeaders['Authorization'] = 'Basic ' + Buffer.from(authUser + ':' + (authPass || '')).toString('base64');
-  }
-
-  const options = {
-    hostname: target.hostname,
-    port: target.port ? parseInt(target.port, 10) : (isHttps ? 443 : 80),
-    path: target.pathname + (target.search || ''),
-    method: 'GET',
-    headers: fwdHeaders,
-    // 150s: the full ID12086_Tickets_medidor entity takes ~60s upstream
-    // (same as an Excel Power Query refresh), and the server ignores $top,
-    // so the payload can't be trimmed. The earlier 45s limit (raised from
-    // 20s for ID12096_Plantilla_tarea_con_revision) produced 504s once the
-    // tickets entity grew past it.
-    timeout: 150000
-  };
-
-  const proxyReq = transport.request(options, (proxyRes) => {
-    const status = proxyRes.statusCode;
-    if (status === 401) {
-      sendJson(res, 401, { error: 'HTTP 401 — Credenciales incorrectas o no proporcionadas.' });
-      proxyRes.resume();
-      return;
+    const fwdHeaders = { Accept: 'application/json', 'User-Agent': 'SOFIA-Dashboard/1.0' };
+    if (authUser) {
+      fwdHeaders['Authorization'] = 'Basic ' + Buffer.from(authUser + ':' + (authPass || '')).toString('base64');
     }
-    if (status < 200 || status >= 300) {
-      // Never echo upstream error text to the client — just the status.
-      sendJson(res, status, { error: 'El servidor OData respondió con un error.' });
-      proxyRes.resume();
-      return;
+
+    const proxyReq = transport.request({
+      hostname: target.hostname,
+      port: target.port ? parseInt(target.port, 10) : (isHttps ? 443 : 80),
+      path: target.pathname + (target.search || ''),
+      method: 'GET',
+      headers: fwdHeaders,
+      timeout: ODATA_UPSTREAM_TIMEOUT_MS
+    }, (proxyRes) => {
+      const status = proxyRes.statusCode;
+      if (status === 401) {
+        proxyRes.resume();
+        return resolve({ ok: false, status: 401, error: 'HTTP 401 — Credenciales incorrectas o no proporcionadas.' });
+      }
+      if (status < 200 || status >= 300) {
+        // Never echo upstream error text to the client — just the status.
+        proxyRes.resume();
+        return resolve({ ok: false, status, error: 'El servidor OData respondió con un error.' });
+      }
+      const chunks = [];
+      proxyRes.on('data', (c) => chunks.push(c));
+      proxyRes.on('end', () => {
+        resolve({
+          ok: true,
+          entry: {
+            gzBody: zlib.gzipSync(Buffer.concat(chunks)),
+            contentType: proxyRes.headers['content-type'] || 'application/json; charset=utf-8',
+            fetchedAt: Date.now()
+          }
+        });
+      });
+      proxyRes.on('error', () => resolve({ ok: false, status: 502, error: 'Error de red al conectar con el servidor OData.' }));
+    });
+
+    proxyReq.on('timeout', () => {
+      proxyReq.destroy();
+      resolve({ ok: false, status: 504, error: 'Timeout al conectar con el servidor OData.' });
+    });
+    proxyReq.on('error', () => resolve({ ok: false, status: 502, error: 'Error de red al conectar con el servidor OData.' }));
+    proxyReq.end();
+  });
+}
+
+// Refreshes one cache key, sharing a single upstream request among all
+// callers while it is in flight. Only successful answers are cached.
+function refreshODataCache(key, target, authUser, authPass) {
+  if (_odataInFlight.has(key)) return _odataInFlight.get(key);
+  const p = fetchODataUpstream(target, authUser, authPass).then((result) => {
+    if (result.ok) _odataCache.set(key, result.entry);
+    _odataInFlight.delete(key);
+    return result;
+  });
+  _odataInFlight.set(key, p);
+  return p;
+}
+
+function sendODataEntry(req, res, entry) {
+  const headers = Object.assign({
+    'Content-Type': entry.contentType,
+    'X-Data-Fetched-At': new Date(entry.fetchedAt).toISOString()
+  }, SECURITY_HEADERS);
+  if (/\bgzip\b/.test(req.headers['accept-encoding'] || '')) {
+    headers['Content-Encoding'] = 'gzip';
+    headers['Vary'] = 'Accept-Encoding';
+    res.writeHead(200, headers);
+    res.end(entry.gzBody);
+  } else {
+    res.writeHead(200, headers);
+    res.end(zlib.gunzipSync(entry.gzBody));
+  }
+}
+
+async function performODataRequest(req, targetUrl, authUser, authPass, res) {
+  const v = validateODataTarget(targetUrl);
+  if (!v.target) return sendJson(res, v.status, { error: v.error });
+
+  // The user is part of the key so a credentials change never serves data
+  // fetched under the previous user.
+  const key = (authUser || '') + '|' + v.target.toString();
+  const cached = _odataCache.get(key);
+  if (cached) {
+    if (Date.now() - cached.fetchedAt > ODATA_CACHE_FRESH_MS) {
+      refreshODataCache(key, v.target, authUser, authPass); // background, errors keep the old copy
     }
-    const resHeaders = Object.assign(
-      { 'Content-Type': proxyRes.headers['content-type'] || 'application/json; charset=utf-8' },
-      SECURITY_HEADERS
-    );
-    res.writeHead(status, resHeaders);
-    proxyRes.pipe(res);
-  });
+    return sendODataEntry(req, res, cached);
+  }
 
-  proxyReq.on('timeout', () => {
-    proxyReq.destroy();
-    if (res.headersSent) { res.destroy(); return; }
-    sendJson(res, 504, { error: 'Timeout al conectar con el servidor OData.' });
-  });
-
-  proxyReq.on('error', () => {
-    if (res.headersSent) { res.destroy(); return; }
-    sendJson(res, 502, { error: 'Error de red al conectar con el servidor OData.' });
-  });
-
-  proxyReq.end();
+  const result = await refreshODataCache(key, v.target, authUser, authPass);
+  if (!result.ok) return sendJson(res, result.status, { error: result.error });
+  sendODataEntry(req, res, result.entry);
 }
 
 function buildTemplateRequestUrl(cfg, extraQuery) {
@@ -352,7 +412,7 @@ function handleODataProxyGet(req, res) {
   const rawTarget = parsed.searchParams.get('url');
   const targetUrl = rawTarget || buildTemplateRequestUrl(cfg);
 
-  performODataRequest(targetUrl, cfg.authUser, cfg.authPass, res);
+  performODataRequest(req, targetUrl, cfg.authUser, cfg.authPass, res);
 }
 
 function handleSampleGet(req, res) {
@@ -371,7 +431,9 @@ function requestHandler(req, res) {
   if (urlPath === '/api/config' && req.method === 'GET') return handleConfigGet(req, res);
   if (urlPath === '/api/config' && req.method === 'POST') return handleConfigPost(req, res);
   if (urlPath === '/api/config/test' && req.method === 'POST') return handleConfigTestPost(req, res);
-  if (urlPath === '/odata-proxy' && req.method === 'GET') return handleODataProxyGet(req, res);
+  // /api/odata-proxy is the path the frontend calls (it matches the Vercel
+  // function at api/odata-proxy.js); /odata-proxy is kept for older callers.
+  if ((urlPath === '/odata-proxy' || urlPath === '/api/odata-proxy') && req.method === 'GET') return handleODataProxyGet(req, res);
   if (urlPath === '/api/sample' && req.method === 'GET') return handleSampleGet(req, res);
 
   if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(req, res);
