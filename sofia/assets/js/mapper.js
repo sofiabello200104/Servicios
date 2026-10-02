@@ -349,17 +349,9 @@
       return cols[field] || fallbackKey;
     }
 
-    // Tiempo_Soporte_Minutos (support time actually consumed, in minutes) is
-    // matched by EXACT normalized name, not through CANONICAL_ALIASES: that
-    // table's "one contains the other" fallback would let the unrelated
-    // `Minutos` column stand in for it when the real one is absent, silently
-    // charting the wrong figure. Absent column -> null on every ticket (see
-    // buildProgramadoVsSoporte's hasSoporte), present -> minutes (0 if empty).
-    var soporteMinCol = Object.keys(rows[0]).find(function (k) { return normKey(k) === 'tiemposoporteminutos'; }) || null;
-
     // `Minutos` (minutes spent on the ticket) backs the "Promedio de Minutos"
-    // series and KPI. Same EXACT-name match, so Tiempo_Soporte_Minutos never
-    // stands in for it. Absent column -> undefined on every ticket (lets
+    // series and KPI. Matched by EXACT normalized name (not CANONICAL_ALIASES,
+    // whose "one contains the other" fallback could pick a different column). Absent column -> undefined on every ticket (lets
     // buildTicketStatsPorRecurso tell "no column" from "column, no value");
     // present but empty/unparseable -> null, which the average skips (like
     // Power BI's Promedio, which ignores blanks).
@@ -412,7 +404,6 @@
         prioridadRaw: fillOrDefault(prioridadRaw),
         tiempoEmpleadoEntrega: fillOrDefault(row[col('tiempoEmpleadoEntrega', 'Tiempo_empleado_entrega')]),
         tiempoDeLlamada: fillOrDefault(row[col('tiempoDeLlamada', 'Tiempo_de_llamada')]),
-        tiempoSoporteMin: soporteMinCol ? (parseTiempoLlamada(row[soporteMinCol]) || 0) : null,
         minutos: minutosCol ? parseTiempoLlamada(row[minutosCol]) : undefined,
         // Raw HH:MM strings (or null) — kept un-normalized (not "Sin dato")
         // because ticketHours() needs to distinguish "absent" from a real value.
@@ -994,72 +985,6 @@
     };
   }
 
-  // buildProgramadoVsSoporte(tickets, filters): per-resource hours for
-  // Capacidad's "Programado vs. Soporte consumido" bar chart (replaced the
-  // "Ocupación por recurso" donut, 2026-10-02). filters = the SAME shape as
-  // buildCapacidad ({ from, to, recursos, cliente, proyecto }).
-  //   - A ticket counts when its `Fecha` column falls inside [from, to] --
-  //     NOT the per-block Fecha_Soporte_Inicial dating buildCapacidad uses
-  //     (user's explicit rule: "tomando la fecha de Fecha").
-  //   - programado = all of the ticket's Hora_Cal blocks (ticketHours total).
-  //   - soporte = Tiempo_Soporte_Minutos / 60.
-  //   - Tickets only: the 4 extra sources have no `Fecha` nor support time.
-  // Every name in filters.recursos gets a row, even at 0 h, so the X axis is
-  // the same team the filter shows. Names are matched by recursoGroupKey.
-  function buildProgramadoVsSoporte(tickets, filters) {
-    filters = filters || {};
-    tickets = Array.isArray(tickets) ? tickets : [];
-    var period = resolvePeriod(tickets, filters);
-    var from = period.from, to = period.to;
-    var hasSoporte = tickets.some(function (t) { return t.tiempoSoporteMin != null; });
-
-    function keyOf(name) { return recursoGroupKey(toTitleCase(name)); }
-    function proyectoLabel(raw) { return raw && raw !== 'Sin dato' ? raw : 'Sin proyecto'; }
-
-    var recursosFilter = isAllSelector(filters.recursos) ? null : filters.recursos;
-    var nameByKey = {};
-    var order = [];
-    if (recursosFilter) {
-      recursosFilter.forEach(function (n) {
-        var k = keyOf(n);
-        if (!nameByKey[k]) { nameByKey[k] = n; order.push(k); }
-      });
-    }
-
-    var programado = {};
-    var soporte = {};
-    tickets.forEach(function (t) {
-      if (!t.recursoSoporte || t.recursoSoporte === 'Sin dato') return;
-      var d = t.fecha ? asUTCDate(t.fecha) : null;
-      if (!d || d.getTime() < from.getTime() || d.getTime() > to.getTime()) return;
-      if (filters.cliente && filters.cliente !== 'all' && t.cliente !== filters.cliente) return;
-      if (filters.proyecto && filters.proyecto !== 'all' && proyectoLabel(t.proyecto) !== proyectoLabel(filters.proyecto)) return;
-      var k = keyOf(t.recursoSoporte);
-      if (recursosFilter) {
-        if (!nameByKey[k]) return;
-      } else if (!nameByKey[k]) {
-        nameByKey[k] = t.recursoSoporte;
-        order.push(k);
-      }
-      programado[k] = (programado[k] || 0) + ticketHours(t).total;
-      if (t.tiempoSoporteMin) soporte[k] = (soporte[k] || 0) + t.tiempoSoporteMin / 60;
-    });
-
-    var porRecurso = order.map(function (k) {
-      return { recurso: nameByKey[k], programado: round4(programado[k] || 0), soporte: round4(soporte[k] || 0) };
-    }).sort(function (a, b) { return (b.programado - a.programado) || a.recurso.localeCompare(b.recurso); });
-
-    return {
-      porRecurso: porRecurso,
-      hasSoporte: hasSoporte,
-      totales: {
-        programado: round4(porRecurso.reduce(function (s, r) { return s + r.programado; }, 0)),
-        soporte: round4(porRecurso.reduce(function (s, r) { return s + r.soporte; }, 0))
-      },
-      periodo: { from: isoDate(from), to: isoDate(to) }
-    };
-  }
-
   // buildTicketStatsPorRecurso(tickets, filters): ticket count ("Recuento de
   // ID") and average minutes ("Promedio de Minutos") per resource, for the
   // "Promedio en minutos y Recuento de Tickets por Recurso" chart and the
@@ -1068,7 +993,7 @@
   //
   // A ticket counts when its `Fecha` falls inside [from, to] and it passes
   // the Cliente/Proyecto filters -- the same per-ticket rule as
-  // buildProgramadoVsSoporte. Tickets only: the 4 extra sources have no ID,
+  // buildCapacidad. Tickets only: the 4 extra sources have no ID,
   // Fecha or Minutos. Resources are matched accent/case-insensitively; with
   // an explicit recursos list every listed person gets a row (0 tickets
   // included) in the list's own order, so the chart keeps a stable axis.
@@ -1548,7 +1473,6 @@
     CAP_CARD_RECURSOS: CAP_CARD_RECURSOS,
     filterRecursosByList: filterRecursosByList,
     isRecursoInList: isRecursoInList,
-    buildProgramadoVsSoporte: buildProgramadoVsSoporte,
     normalizeRecurso: normalizeRecurso,
     groupPrioridad: groupPrioridad,
     normalizeTickets: normalizeTickets,

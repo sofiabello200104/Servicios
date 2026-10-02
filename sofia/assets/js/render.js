@@ -386,40 +386,6 @@
   /* -------- Charts -------- */
 
   function renderCapCharts(result, filters) {
-    // Grouped bar: Programado vs. Soporte consumido per resource (replaced the
-    // "Ocupación por recurso" stacked bar, 2026-10-02). X = the filtered team,
-    // Y = hours. Tickets are picked by their `Fecha` column inside Desde/Hasta
-    // -- see buildProgramadoVsSoporte (mapper.js) for the rules.
-    const pvs = M.buildProgramadoVsSoporte(_capAllTickets, filters);
-    const recursoFull = pvs.porRecurso.map((r) => r.recurso);
-    // Axis label = primer nombre + primer apellido, same convention as the
-    // card initials ("Marlon Hernando Serna Loaiza" -> "Marlon Serna").
-    const recursoShort = recursoFull.map((name) => name.split(/\s+/).filter((_, i, all) => i === 0 || i === (all.length >= 4 ? 2 : 1)).join(' ') || name);
-    const datasets = [
-      { label: 'Programado', data: pvs.porRecurso.map((r) => r.programado), backgroundColor: '#0284C7' }
-    ];
-    if (pvs.hasSoporte) {
-      datasets.push({ label: 'Soporte consumido', data: pvs.porRecurso.map((r) => r.soporte), backgroundColor: '#10B981' });
-    }
-    C.chartEmptyState('chart-cap-ocupacion', pvs.porRecurso.length === 0, 'Sin recursos para los filtros seleccionados');
-    C.barChart('chart-cap-ocupacion', datasets, {
-      labels: recursoShort,
-      xOpts: { ticks: { autoSkip: false, font: { size: 10 }, maxRotation: 40, minRotation: 0 } },
-      yOpts: { title: { display: true, text: 'Horas', color: '#94A3B8', font: { size: 11 } } },
-      tooltipOpts: {
-        callbacks: {
-          title: (items) => recursoFull[items[0].dataIndex],
-          label: (item) => item.dataset.label + ': ' + formatHoras(item.parsed.y) + ' h'
-        }
-      }
-    });
-    const pvsNote = document.getElementById('chart-cap-pvs-note');
-    if (pvsNote) {
-      pvsNote.textContent = pvs.hasSoporte
-        ? 'Total programado: ' + formatHoras(pvs.totales.programado) + ' h · Soporte consumido: ' + formatHoras(pvs.totales.soporte) + ' h · Tickets por su columna Fecha.'
-        : 'La plantilla OData no trae la columna Tiempo_Soporte_Minutos: solo se muestra lo programado (' + formatHoras(pvs.totales.programado) + ' h).';
-    }
-
     // Horizontal bar: Consumo por Proyecto — top 15 desc, title + data
     // dynamic on the Cliente filter (already restricted to that cliente's
     // rows by buildCapacidad, since `filters.cliente` narrows `rows` there —

@@ -210,22 +210,17 @@
 
         <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <!-- Grouped bar: Promedio de minutos y Recuento de tickets por recurso
+               (ocupa el lugar de "Programado vs. soporte consumido", 2026-10-02) -->
           <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Programado vs. soporte consumido por recurso</h3>
-            <div class="chart-box-legend"><canvas id="chart-cap-ocupacion"></canvas></div>
-            <p class="text-[11px] text-slate-500 mt-2" id="chart-cap-pvs-note"></p>
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Promedio en minutos y Recuento de Tickets por Recurso</h3>
+            <div class="chart-box-legend"><canvas id="chart-cap-tickets-stats"></canvas></div>
+            <p class="text-[11px] text-slate-500 mt-2" id="chart-cap-tickets-stats-note"></p>
           </div>
           <div class="card p-5 card-loading-target">
             <h3 class="text-sm font-bold text-slate-800 mb-3" id="chart-cap-proyecto-title">Consumo por Proyecto (Global)</h3>
             <div class="chart-box-legend"><canvas id="chart-cap-proyecto"></canvas></div>
           </div>
-        </div>
-
-        <!-- Grouped bar: Promedio de minutos y Recuento de tickets por recurso -->
-        <div class="card p-5 card-loading-target mb-6">
-          <h3 class="text-sm font-bold text-slate-800 mb-3">Promedio en minutos y Recuento de Tickets por Recurso</h3>
-          <div class="chart-box-legend"><canvas id="chart-cap-tickets-stats"></canvas></div>
-          <p class="text-[11px] text-slate-500 mt-2" id="chart-cap-tickets-stats-note"></p>
         </div>
 
         <!-- Detalle por recurso: cuadrícula de tarjetas (reemplaza la tabla).
