@@ -1522,3 +1522,41 @@ test('buildSegundoNivel on data/sample-tickets.json matches the confirmed busine
     { label: 'OSCAR MAURICIO LOPEZ MORALES', value: 1 }
   ]);
 });
+
+/* ==================== buildProgramadoVsSoporte (Capacidad bar chart) ==================== */
+
+test('buildProgramadoVsSoporte picks tickets by their Fecha column, not by block dates', () => {
+  const tickets = mapper.normalizeTickets([
+    // Fecha inside the period, but its hour block is dated outside it: COUNTS.
+    rawTicketWithHours({ ID: 1, Fecha: '2026-03-02T00:00:00', Fecha_Soporte_Inicial: '2026-02-20T00:00:00',
+      Hora_Cal_Inicial: '08:00', Hora_Cal_Final: '10:00', Tiempo_Soporte_Minutos: 90 }),
+    // Fecha outside the period, block dated inside it: does NOT count.
+    rawTicketWithHours({ ID: 2, Fecha: '2026-04-01T00:00:00', Fecha_Soporte_Inicial: '2026-03-02T00:00:00',
+      Hora_Cal_Inicial: '08:00', Hora_Cal_Final: '12:00', Tiempo_Soporte_Minutos: 240 })
+  ]);
+  const r = mapper.buildProgramadoVsSoporte(tickets, { from: '2026-03-01', to: '2026-03-31' });
+  assert.equal(r.hasSoporte, true);
+  assert.deepEqual(r.porRecurso, [{ recurso: 'Ana Perez', programado: 2, soporte: 1.5 }]);
+  assert.deepEqual(r.totales, { programado: 2, soporte: 1.5 });
+});
+
+test('buildProgramadoVsSoporte gives every filtered resource a row, even at 0 h', () => {
+  const tickets = mapper.normalizeTickets([
+    rawTicketWithHours({ ID: 1, Hora_Cal_Inicial: '08:00', Hora_Cal_Final: '09:00', Tiempo_Soporte_Minutos: '30' })
+  ]);
+  const r = mapper.buildProgramadoVsSoporte(tickets, { from: '2026-03-01', to: '2026-03-31', recursos: ['Ana Perez', 'Luis Gomez'] });
+  assert.deepEqual(r.porRecurso, [
+    { recurso: 'Ana Perez', programado: 1, soporte: 0.5 },
+    { recurso: 'Luis Gomez', programado: 0, soporte: 0 }
+  ]);
+});
+
+test('buildProgramadoVsSoporte reports hasSoporte:false when Tiempo_Soporte_Minutos is absent, and never falls back to Minutos', () => {
+  const tickets = mapper.normalizeTickets([
+    rawTicketWithHours({ ID: 1, Hora_Cal_Inicial: '08:00', Hora_Cal_Final: '09:00', Minutos: 999 })
+  ]);
+  const r = mapper.buildProgramadoVsSoporte(tickets, { from: '2026-03-01', to: '2026-03-31' });
+  assert.equal(r.hasSoporte, false);
+  assert.equal(r.porRecurso[0].soporte, 0);
+  assert.equal(tickets[0].tiempoSoporteMin, null);
+});

@@ -281,6 +281,29 @@ un algoritmo puro — sin API ni dependencia externa — cacheado por año
 tacómetro) hereda esto automáticamente, sin tocar ningún otro punto de
 cómputo. No hay calendario de festivos de otros países.
 
+### Equipo de la vista y gráfica "Programado vs. soporte consumido"
+
+La vista trabaja solo con las 12 personas de `CAP_CARD_RECURSOS`
+(mapper.js). El filtro **Recursos** y el selector de los tacómetros solo
+ofrecen esas personas, y "Todos los recursos" significa ese equipo, así que
+los KPIs, las gráficas y las tarjetas cuentan siempre a las mismas personas.
+
+La gráfica **"Programado vs. soporte consumido por recurso"** (reemplazó a
+"Ocupación por recurso") es de barras agrupadas: eje X = recurso, eje Y =
+horas. La calcula `buildProgramadoVsSoporte`:
+
+- Un ticket entra si su columna **`Fecha`** cae entre Desde y Hasta. Es
+  distinto del resto de Capacidad, que fecha cada bloque de horas por
+  `Fecha_Soporte_Inicial`.
+- **Programado** = todas las horas `Hora_Cal_Final − Hora_Cal_Inicial` del
+  ticket (bloques 1 y 3).
+- **Soporte consumido** = `Tiempo_Soporte_Minutos / 60`. La columna se busca
+  por su nombre **exacto**: si no está en la plantilla, la barra verde no se
+  dibuja y una nota debajo de la gráfica lo indica. Nunca se usa `Minutos`
+  en su lugar.
+- Solo tickets: las 4 fuentes extra no tienen `Fecha` ni tiempo de soporte.
+- También aplica los filtros Cliente y Proyecto.
+
 ### Detalle por recurso: cuadrícula de tarjetas
 
 Desde la versión 2 esta sección NO es una tabla: es una cuadrícula responsiva
