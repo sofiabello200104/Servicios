@@ -44,9 +44,10 @@ Solo se permiten hosts en la allowlist del servidor (`ALLOWED_ODATA_HOSTS` en
 
 Sin configurar OData, el estado vacío del dashboard ofrece un botón
 **Cargar datos de ejemplo**, que consume `GET /api/sample`
-(`data/sample-tickets.json`, generado a partir de `Libro1.xlsx` — ver
-`scripts/generate-sample.py`). Útil para verificar la interfaz sin
-credenciales reales.
+(`data/sample-tickets.json`). Útil para verificar la interfaz sin
+credenciales reales. Ese fixture es ahora una instantánea fija versionada en
+git: el `Libro1.xlsx` del que se generaba y su script `generate-sample.py`
+se eliminaron el 2026-10-01 (ver "Fuente de las entidades OData").
 
 ## Estructura del proyecto
 
@@ -64,10 +65,40 @@ assets/js/parametrizacion.js Panel slide-over de configuración OData
 assets/js/app.js             Boot: wiring de botones, cambio de vista, orquestación de carga de datos
 test/mapper.test.js          Tests con node:test (node --test / npm test)
 test-runner.html             Harness de tests en navegador (abrir directo, sin servidor)
-scripts/generate-sample.py   Genera data/sample-tickets.json desde Libro1.xlsx
-data/sample-tickets.json     Fixture de desarrollo (trackeado en git)
+INDICADORES.pbix             Modelo Power BI — fuente de verdad de los nombres de entidad OData
+data/sample-tickets.json     Fixture de desarrollo (instantánea fija, trackeada en git)
 data/config.json             Config OData guardada (NO trackeado en git)
 ```
+
+## Fuente de las entidades OData
+
+Los nombres de las entidades (`ID12086_Tickets_medidor`, etc.) se toman de
+**`INDICADORES.pbix`**, el modelo de Power BI versionado en este repo. Es la
+fuente de verdad desde el 2026-10-01, cuando se eliminaron los cinco `.xlsx`
+que antes cumplían ese rol.
+
+Para leer las tablas del modelo sin abrir Power BI:
+
+```bash
+unzip -p INDICADORES.pbix DiagramLayout | iconv -f UTF-16LE -t UTF-8 \
+  | rg -o '"nodeIndex":"[^"]+"'
+```
+
+Dos advertencias:
+
+- Los nombres **completos** son los que publica el servidor en
+  `/odata/plantillas`. Las grafías truncadas que hubo antes
+  (`..._tarea_con_rev`, `..._seguimiento_c`) venían de las pestañas de Excel,
+  que cortan a 31 caracteres, y nunca correspondieron a una entidad real.
+- **`ID12096_Plantilla_tarea_con_revision` no está en el `.pbix`** pero sí la
+  publica el servidor, y sigue alimentando las horas reservadas de Capacidad.
+  Se mantiene a propósito (decisión del usuario, 2026-10-01): quitarla haría
+  que Capacidad reporte menos horas de las reales.
+
+Los datos en vivo **nunca** salieron de los `.xlsx` ni salen del `.pbix`: la
+app los pide siempre al endpoint OData vía `/api/odata-proxy` (ver
+`assets/js/odata-client.js`). Estos archivos solo documentan *qué* entidades
+pedir.
 
 ## Vista: Capacidad y Rendimiento
 
@@ -91,8 +122,8 @@ consultor tiene agendado, no solo tickets de soporte:
 |---|---|---|---|---|
 | Tickets | `ID12086_Tickets_medidor` | `Recurso_Soporte` | `Fecha_Soporte_Inicial` (bloque 1) | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
 | Tarea | `ID12097_Plantilla_tarea` | `Recurso` | `Fecha_Inicial` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
-| Tarea con revisión | `ID12096_Plantilla_tarea_con_rev` | `Funcionario_que_Resuelve` | `Fecha_Incio` (sic, typo real de la columna en el feed en vivo) | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
-| Seguimiento cliente | `ID12098_Plantilla_seguimiento_c` | `Responsable_de_Seguimiento` | `Fecha_Inicial` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
+| Tarea con revisión | `ID12096_Plantilla_tarea_con_revision` | `Funcionario_que_Resuelve` | `Fecha_Incio` (sic, typo real de la columna en el feed en vivo) | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
+| Seguimiento cliente | `ID12098_Plantilla_seguimiento_cliente` | `Responsable_de_Seguimiento` | `Fecha_Inicial` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
 | Capacitación | `ID12095_Plantilla_capacitacion` | `_Colaborador_en_formacion` | `Fecha_Inicial` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
 
 `assets/js/data-sources.js` (`window.SOFIA_DATA_SOURCES`) trae el registro

@@ -8,7 +8,7 @@
   // CMI_MAPPER pattern).
 
   /* ==================== Column alias detection ====================
-     The OData feed and the Libro1.xlsx fixture already use the exact
+     The OData feed and the data/sample-tickets.json fixture use the exact
      ID12086_Tickets_medidor column names, but resolving them through a
      small alias table (instead of hardcoding row.Fecha etc. everywhere)
      keeps normalizeTickets() tolerant of minor casing/naming drift without

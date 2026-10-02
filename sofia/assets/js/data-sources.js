@@ -14,10 +14,21 @@
   var _isNode = (typeof module !== 'undefined' && !!module.exports);
   var M = _isNode ? require('./mapper.js') : _root.SOFIA_MAPPER;
 
-  // Template OData names, campo recurso, fechas y horas confirmados por el
-  // usuario (tabla "Confirmed OData entities" del spec). Fecha_Incio es un
-  // typo real de la columna en el feed en vivo (Tarea con revisión), no un
-  // error de tipeo aquí -- verificar contra el feed real antes de tocarlo.
+  // Entity set names taken from INDICADORES.pbix (the Power BI model is now
+  // the source of truth for which OData entities exist -- the old .xlsx
+  // files were removed on 2026-10-01). They are the FULL names the server
+  // publishes at /odata/plantillas; earlier truncated spellings
+  // (..._tarea_con_rev, ..._seguimiento_c) came from Excel sheet tabs, which
+  // cap at 31 chars, and never matched a real entity.
+  //
+  // "Tarea con Revisión" (ID12096_Plantilla_tarea_con_revision) is NOT in
+  // INDICADORES.pbix but IS published by the server and still feeds
+  // Capacidad's reserved hours -- kept deliberately (user decision,
+  // 2026-10-01). Dropping it would under-report hours.
+  //
+  // Fecha_Incio is a real column-name typo in the live feed (Tarea con
+  // revisión), not a typo here -- verify against the real feed before
+  // touching it.
   var CAPACIDAD_EXTRA_SOURCES = [
     {
       key: 'tarea',
@@ -31,7 +42,7 @@
     {
       key: 'tareaConRevision',
       fuente: 'Tarea con Revisión',
-      templateName: 'ID12096_Plantilla_tarea_con_rev',
+      templateName: 'ID12096_Plantilla_tarea_con_revision',
       recursoField: 'Funcionario_que_Resuelve',
       // Sic: real column name typo confirmed against the live OData feed
       // (unlike the other three sources' "Fecha_Inicial") -- see
@@ -43,7 +54,7 @@
     {
       key: 'seguimientoCliente',
       fuente: 'Seguimiento Cliente',
-      templateName: 'ID12098_Plantilla_seguimiento_c',
+      templateName: 'ID12098_Plantilla_seguimiento_cliente',
       recursoField: 'Responsable_de_Seguimiento',
       fechaInicialField: 'Fecha_Inicial',
       horaInicialField: 'Hora_Cal_Inicial',

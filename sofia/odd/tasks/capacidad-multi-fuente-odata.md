@@ -14,20 +14,27 @@ The user's original ask assumed Capacidad reads from a static local Excel.
 Verified false: `app.js`/`server.js` show every view (Resumen, Capacidad,
 Activos, Segundo Nivel) already shares one `tickets` array loaded from the
 live OData proxy (`/odata-proxy`), configured via the Parametrización panel.
-`Libro1.xlsx` only feeds the offline "Cargar datos de ejemplo" demo button.
+`Libro1.xlsx` only fed the offline "Cargar datos de ejemplo" demo button.
 The five `.xlsx` files in the project root (`Libro1.xlsx`, `Tarea.xlsx`,
 `Tarea con revisión.xlsx`, `Capacitaciones.xlsx`, `Seguimiento cliente.xlsx`)
 were given only as a reference for column structure — the user confirmed
 implementation must target the real OData entities, not read these files at
 runtime.
 
+**Update 2026-10-01**: those five `.xlsx` files and `scripts/generate-sample.py`
+were deleted. `INDICADORES.pbix` is now the source of truth for entity names,
+and `data/sample-tickets.json` is a frozen snapshot kept in git. Entity names
+below were corrected to the full spellings the server publishes (the truncated
+ones came from Excel's 31-char sheet-tab limit). See README, "Fuente de las
+entidades OData".
+
 ## Confirmed OData entities (user-confirmed template names)
 | Fuente | Template OData | Campo recurso | Fecha inicial | Fecha final | Horas |
 |---|---|---|---|---|---|
 | Tickets (ya existente) | `ID12086_Tickets_medidor` | `Recurso_Soporte` | `Fecha_Soporte_Inicial`/`Fecha_Entrega_Inicial` (bloques 1/3) | — | `Hora_Cal_Inicial`/`Hora_Cal_Final` (+ bloque 3) |
 | Tarea | `ID12097_Plantilla_tarea` | `Recurso` | `Fecha_Inicial` | `Fecha_Final` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
-| Tarea con revisión | `ID12096_Plantilla_tarea_con_rev` | `Funcionario_que_Resuelve` | `Fecha_Incio` (sic, typo in the real column name — verify against the live OData response, not assumed) | `Fecha_Final` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
-| Seguimiento cliente | `ID12098_Plantilla_seguimiento_c` | `Responsable_de_Seguimiento` | `Fecha_Inicial` | `Fecha_Final` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
+| Tarea con revisión | `ID12096_Plantilla_tarea_con_revision` | `Funcionario_que_Resuelve` | `Fecha_Incio` (sic, typo in the real column name — verify against the live OData response, not assumed) | `Fecha_Final` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
+| Seguimiento cliente | `ID12098_Plantilla_seguimiento_cliente` | `Responsable_de_Seguimiento` | `Fecha_Inicial` | `Fecha_Final` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
 | Capacitación | `ID12095_Plantilla_capacitacion` | `_Colaborador_en_formacion` | `Fecha_Inicial` | `Fecha_Final` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
 
 None of the 4 new entities expose an `Estado`/`Accion`-style column in their
