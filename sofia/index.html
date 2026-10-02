@@ -285,21 +285,20 @@
               </div>
             </div>
           </div>
+          <!-- Fecha de creación = columna Fecha del ticket -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-soporte-desde">Fecha Soporte Inicial (desde)</label>
-            <input type="date" id="filter-act-soporte-desde" class="filter-select input-base" />
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-creacion-desde">Fecha de creación desde</label>
+            <input type="date" id="filter-act-creacion-desde" class="filter-select input-base" />
           </div>
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-soporte-hasta">Fecha Soporte Inicial (hasta)</label>
-            <input type="date" id="filter-act-soporte-hasta" class="filter-select input-base" />
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-creacion-hasta">Fecha de creación hasta</label>
+            <input type="date" id="filter-act-creacion-hasta" class="filter-select input-base" />
           </div>
+          <!-- Acción: sincronizado con el clic en "Tickets Abiertos por Acción (General)";
+               al elegir una acción, el panel inferior resume esos tickets por recurso. -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-entrega-desde">Fecha Entrega Inicial (desde)</label>
-            <input type="date" id="filter-act-entrega-desde" class="filter-select input-base" />
-          </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-entrega-hasta">Fecha Entrega Inicial (hasta)</label>
-            <input type="date" id="filter-act-entrega-hasta" class="filter-select input-base" />
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-accion">Acción</label>
+            <select id="filter-act-accion" class="filter-select"><option value="all">Todas las acciones</option></select>
           </div>
           <!-- Oculto por completo cuando la plantilla OData no trae la columna
                Requerimiento_Opcion (ver hasRequerimiento en buildActivos) -- misma
@@ -323,7 +322,15 @@
         </div>
 
         <!-- KPIs -->
-        <div id="kpi-row-activos" class="card-loading-target grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"></div>
+        <div id="kpi-row-activos" class="card-loading-target grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6"></div>
+
+        <!-- Línea: tickets creados vs. tickets a Segundo Nivel (Calidad) por día,
+             sobre toda la fuente ID12086_Tickets_medidor -->
+        <div class="card p-5 card-loading-target mb-6">
+          <h3 class="text-sm font-bold text-slate-800 mb-3">Tickets Creados vs. Tickets a Segundo Nivel (Calidad) por Día</h3>
+          <div class="chart-box-legend"><canvas id="chart-act-diarios"></canvas></div>
+          <p class="text-[11px] text-slate-500 mt-2" id="chart-act-diarios-note"></p>
+        </div>
 
         <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -369,7 +376,7 @@
             </div>
           </div>
           <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Detalle del recurso seleccionado</h3>
+            <h3 class="text-sm font-bold text-slate-800 mb-3" id="act-resumen-title">Detalle del recurso seleccionado</h3>
             <div id="act-resumen-panel"></div>
           </div>
         </div>

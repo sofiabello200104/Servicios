@@ -320,6 +320,8 @@
       from: document.getElementById('filter-cap-desde').value,
       to: document.getElementById('filter-cap-hasta').value,
       recursos: selected.length ? selected : _capTeam.slice(),
+      // Explicit pick only (empty = nobody ticked); used by the CountAll KPI.
+      recursosSeleccion: selected,
       cliente: document.getElementById('filter-cap-cliente').value,
       proyecto: document.getElementById('filter-cap-proyecto').value
     };
@@ -328,11 +330,12 @@
   /* -------- KPIs -------- */
 
   // ticketStats = M.buildTicketStatsPorRecurso(...) for the same filters --
-  // computed once in renderCapacidad and shared with the grouped bar chart,
-  // so the KPI total always equals the sum of the chart's ticket bars.
+  // computed once in renderCapacidad. The "Total Tickets Atendidos" card
+  // reads ticketStats.todos (CountAll over the whole ticket source in the
+  // period), so it can exceed the sum of the team's bars in the chart.
   function renderCapKpis(result, ticketStats) {
     const k = result.kpis;
-    const tot = ticketStats.totales;
+    const tot = ticketStats.todos;
 
     const cards = [
       C.kpiCard({ title: 'Capacidad Instalada', value: formatHoras(k.capacidad), unit: ' h', noChip: true, hasData: false }),
@@ -354,7 +357,7 @@
       '<div class="spark-wrap mt-2"></div>' +
       '</div>'
     );
-    // 5th KPI: Total Tickets Atendidos (Recuento de ID) + promedio general
+    // 5th KPI: Total Tickets Atendidos (CountAll) + promedio general
     // de minutos por ticket. "—" when no ticket in range has a Minutos value
     // (or the template lacks the column) instead of a misleading "0 min".
     const promedioTxt = tot.promedioMinutos != null ? formatMinutos(tot.promedioMinutos) + ' min' : '—';
@@ -363,7 +366,7 @@
       : 'Promedio de tiempo por ticket';
     cards.push(
       '<div class="card p-4">' +
-      '<div class="text-[12px] font-semibold text-slate-700 leading-tight">Total Tickets Atendidos</div>' +
+      '<div class="text-[12px] font-semibold text-slate-700 leading-tight" title="Todos los tickets de ID12086_Tickets_medidor con Fecha dentro del periodo">Total Tickets Atendidos</div>' +
       '<div class="mt-3 flex items-baseline gap-2">' +
       '<div class="text-2xl font-extrabold text-slate-900 kpi-num">' + formatEntero(tot.tickets) + '</div>' +
       '<span class="text-sm text-slate-400 font-medium">tickets</span>' +
@@ -415,8 +418,8 @@
     if (noteEl) {
       const tot = ticketStats.totales;
       const parts = [
-        'Total tickets: ' + formatEntero(tot.tickets),
-        'Promedio general: ' + (tot.promedioMinutos != null ? formatMinutos(tot.promedioMinutos) + ' min/ticket' : '—'),
+        'Tickets del equipo: ' + formatEntero(tot.tickets) + ' (de ' + formatEntero(ticketStats.todos.tickets) + ' en total)',
+        'Promedio del equipo: ' + (tot.promedioMinutos != null ? formatMinutos(tot.promedioMinutos) + ' min/ticket' : '—'),
         'Período (por Fecha del ticket): ' + isoToDMY(ticketStats.periodo.from) + ' – ' + isoToDMY(ticketStats.periodo.to)
       ];
       let text = parts.join(' · ');
@@ -735,7 +738,7 @@
   let _actSelectedAccion = null;
 
   // KPI cards with a spec-mandated accent color per card (Tickets Abiertos /
-  // Abiertos Servicios / Abiertos Calidad) -- kpiCard()'s chip/stripe system
+  // Abiertos Calidad) -- kpiCard()'s chip/stripe system
   // is built for ok/warn/bad status, not an arbitrary per-card hex, so these
   // are built inline (same approach render.js already uses for Capacidad's
   // "% Utilización Global" card, which needed its own 4-state badge color).
@@ -796,13 +799,73 @@
     return s;
   }
 
+  // Tickets Abiertos = every open ticket created inside the Fecha de
+  // creación range (plus Recurso/Requerimiento filters). "Abiertos
+  // Servicios" was removed (2026-10-02).
   function renderActivosKpis(result) {
     const cards = [
       activoKpiCard('Tickets Abiertos', result.kpis.total, '#1E293B'),
-      activoKpiCard('Abiertos Servicios', result.kpis.servicios, '#2563EB'),
       activoKpiCard('Abiertos Calidad', result.kpis.calidad, '#7C3AED')
     ];
     document.getElementById('kpi-row-activos').innerHTML = cards.join('');
+  }
+
+  /* -------- Line: tickets creados vs. Segundo Nivel (Calidad) por día -------- */
+
+  // Monotone interpolation: smooth, but never dips below 0 between two
+  // zero-ticket days (plain tension overshoots).
+  const ACT_DIARIOS_COLORS = { creados: '#0284C7', segundoNivel: '#7C3AED' };
+
+  function renderActDiarios(filters) {
+    const d = M.buildTicketsDiarios(_actAllTickets, filters);
+    const labels = d.dias.map((iso) => { const p = iso.split('-'); return p[2] + '/' + p[1]; });
+    const datasets = [{
+      label: 'Tickets Creados por Día', data: d.creados,
+      borderColor: ACT_DIARIOS_COLORS.creados, backgroundColor: ACT_DIARIOS_COLORS.creados, pointRadius: 2, cubicInterpolationMode: 'monotone'
+    }];
+    if (d.hasFechaCalidad) {
+      datasets.push({
+        label: 'Tickets a Segundo Nivel (Calidad) por Día', data: d.segundoNivel,
+        borderColor: ACT_DIARIOS_COLORS.segundoNivel, backgroundColor: ACT_DIARIOS_COLORS.segundoNivel, pointRadius: 2, cubicInterpolationMode: 'monotone'
+      });
+    }
+    C.chartEmptyState('chart-act-diarios', d.dias.length === 0, 'Sin tickets para el rango de fechas seleccionado');
+    C.lineChart('chart-act-diarios', datasets, {
+      labels: labels,
+      legend: true,
+      xOpts: { ticks: { autoSkip: true, maxTicksLimit: 16, font: { size: 10 } } },
+      yOpts: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Tickets', color: '#94A3B8', font: { size: 11 } } },
+      tooltipOpts: { callbacks: { title: (items) => isoToDMY(d.dias[items[0].dataIndex]) } }
+    });
+    const note = document.getElementById('chart-act-diarios-note');
+    if (note) {
+      if (!d.periodo) { note.textContent = ''; return; }
+      const parts = [
+        'Periodo: ' + isoToDMY(d.periodo.from) + ' – ' + isoToDMY(d.periodo.to) + (filters.fechaCreacionFrom || filters.fechaCreacionTo ? '' : ' (últimos 30 días con datos)'),
+        'Creados: ' + formatEntero(d.totales.creados)
+      ];
+      if (d.hasFechaCalidad) parts.push('A Segundo Nivel: ' + formatEntero(d.totales.segundoNivel));
+      let text = parts.join(' · ') + '. Toda la fuente ID12086_Tickets_medidor (cualquier estado y acción).';
+      if (!d.hasFechaCalidad) text += ' La plantilla OData no incluye la columna «Fecha inicial de diagnóstico de calidad»: la serie de Segundo Nivel no se puede calcular.';
+      note.textContent = text;
+    }
+  }
+
+  // Acción <select>: lists the acciones present under the current filters
+  // and mirrors _actSelectedAccion (also set by clicking a bar of "Tickets
+  // Abiertos por Acción (General)").
+  function renderActAccionOptions(result) {
+    const sel = document.getElementById('filter-act-accion');
+    if (!sel) return;
+    sel.innerHTML = '<option value="all">Todas las acciones</option>' +
+      result.porAccion.map((a) => '<option value="' + escapeHtml(a.label) + '">' + escapeHtml(a.label) + ' (' + a.value + ')</option>').join('');
+    sel.value = _actSelectedAccion || 'all';
+  }
+
+  function onActAccionChange(value) {
+    _actSelectedAccion = (!value || value === 'all') ? null : value;
+    _actTablePage = 1;
+    rerenderActivosWithCurrentFilters();
   }
 
   function renderActivosCharts(result) {
@@ -1097,14 +1160,10 @@
 
   function readActivosFilters() {
     const filters = { requerimientos: readSelectedActRequerimientos(), recursos: readSelectedActRecursos() };
-    const soporteDesde = document.getElementById('filter-act-soporte-desde').value;
-    const soporteHasta = document.getElementById('filter-act-soporte-hasta').value;
-    const entregaDesde = document.getElementById('filter-act-entrega-desde').value;
-    const entregaHasta = document.getElementById('filter-act-entrega-hasta').value;
-    if (soporteDesde) filters.fechaSoporteInicialFrom = soporteDesde;
-    if (soporteHasta) filters.fechaSoporteInicialTo = soporteHasta;
-    if (entregaDesde) filters.fechaEntregaInicialFrom = entregaDesde;
-    if (entregaHasta) filters.fechaEntregaInicialTo = entregaHasta;
+    const creacionDesde = document.getElementById('filter-act-creacion-desde').value;
+    const creacionHasta = document.getElementById('filter-act-creacion-hasta').value;
+    if (creacionDesde) filters.fechaCreacionFrom = creacionDesde;
+    if (creacionHasta) filters.fechaCreacionTo = creacionHasta;
     return filters;
   }
 
@@ -1184,11 +1243,40 @@
 
   /* -------- Summary panel: "Detalle del recurso seleccionado" -------- */
 
+  // With an Acción selected (filter or bar click), the panel becomes a
+  // summary of that acción's tickets grouped by assigned resource (count,
+  // desc). Otherwise it keeps the single-resource detail.
+  function renderActAccionResumen(panel, result) {
+    const rows = result.rows.filter((r) =>
+      r.accion === _actSelectedAccion && (!_actSelectedResource || r.recursoAccion === _actSelectedResource));
+    const counts = {};
+    rows.forEach((r) => { counts[r.recursoAccion] = (counts[r.recursoAccion] || 0) + 1; });
+    const grupos = Object.keys(counts).map((k) => ({ recurso: k, tickets: counts[k] }))
+      .sort((a, b) => (b.tickets - a.tickets) || a.recurso.localeCompare(b.recurso));
+    panel.innerHTML =
+      '<div class="text-2xl font-extrabold text-slate-900 mb-3">' + formatEntero(rows.length) +
+      '<span class="text-xs text-slate-400 font-semibold ml-1">tickets en ' + escapeHtml(_actSelectedAccion) + '</span></div>' +
+      (grupos.length
+        ? '<table class="w-full text-[12px]"><thead><tr class="text-left text-slate-500">' +
+            '<th class="py-1 font-semibold">Recurso asignado</th><th class="py-1 font-semibold text-right">Tickets</th></tr></thead><tbody>' +
+            grupos.map((g) => '<tr class="border-t border-slate-100"><td class="py-1.5 text-slate-800">' + escapeHtml(g.recurso) +
+              '</td><td class="py-1.5 text-right font-semibold text-slate-900">' + formatEntero(g.tickets) + '</td></tr>').join('') +
+          '</tbody></table>'
+        : '<p class="text-[12px] text-slate-500">Sin tickets para esta acción con los filtros actuales.</p>');
+  }
+
   function renderActResumenPanel(result) {
     const panel = document.getElementById('act-resumen-panel');
     if (!panel) return;
+    const title = document.getElementById('act-resumen-title');
+    if (_actSelectedAccion) {
+      if (title) title.textContent = 'Resumen por recurso — ' + _actSelectedAccion;
+      renderActAccionResumen(panel, result);
+      return;
+    }
+    if (title) title.textContent = 'Detalle del recurso seleccionado';
     if (!_actSelectedResource) {
-      panel.innerHTML = '<p class="text-[12px] text-slate-500">Seleccione una barra del gráfico "Tickets Abiertos por Recurso (Servicios)" para ver el detalle de un recurso.</p>';
+      panel.innerHTML = '<p class="text-[12px] text-slate-500">Seleccione una acción en el filtro «Acción» (o una barra de "Tickets Abiertos por Acción") para ver el resumen por recurso, o una barra de "Tickets Abiertos por Recurso (Servicios)" para ver el detalle de un recurso.</p>';
       return;
     }
     const recursoRows = result.rows.filter((r) => r.recursoAccion === _actSelectedResource);
@@ -1239,6 +1327,8 @@
     }
 
     renderActivosKpis(result);
+    renderActDiarios(filters);
+    renderActAccionOptions(result);
     renderActivosCharts(result);
     renderActTable(result);
     renderActResumenPanel(result);
@@ -1250,10 +1340,8 @@
 
   function clearActivosFilters() {
     if (!_actAllTickets.length) return;
-    document.getElementById('filter-act-soporte-desde').value = '';
-    document.getElementById('filter-act-soporte-hasta').value = '';
-    document.getElementById('filter-act-entrega-desde').value = '';
-    document.getElementById('filter-act-entrega-hasta').value = '';
+    document.getElementById('filter-act-creacion-desde').value = '';
+    document.getElementById('filter-act-creacion-hasta').value = '';
     document.querySelectorAll('#filter-act-requerimientos-list .act-requerimiento-opt').forEach((el) => { el.checked = false; });
     const reqAllCheckbox = document.getElementById('filter-act-requerimientos-all');
     if (reqAllCheckbox) reqAllCheckbox.checked = true;
@@ -1553,6 +1641,7 @@
     clearCapacidadFilters: clearCapacidadFilters,
     wireCapRecursosMultiSelect: wireCapRecursosMultiSelect,
     onCapClienteChange: onCapClienteChange,
+    onActAccionChange: onActAccionChange,
     wireDrilldownModal: wireDrilldownModal,
     renderActivos: renderActivos,
     rerenderActivosWithCurrentFilters: rerenderActivosWithCurrentFilters,

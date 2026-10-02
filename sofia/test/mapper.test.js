@@ -1140,11 +1140,11 @@ test('buildActivos kpis are COUNT DISTINCT on ID (duplicate ID rows count once)'
 
 /* -------- buildActivos: recursosServicios (Recurso_Accion, Servicios bucket only) -------- */
 
-test('buildActivos recursosServicios groups the Servicios bucket by recursoAccion, sorted desc, empty -> Sin recurso', () => {
+test('buildActivos recursosServicios groups the Servicios bucket by the assigned resource, sorted desc, nobody -> Sin recurso', () => {
   const rows = [
     rawActivoTicket({ ID: 1, Accion: 'REALIZAR', Recurso_Accion: 'Ana' }),
     rawActivoTicket({ ID: 2, Accion: 'CIERRE', Recurso_Accion: 'Ana' }),
-    rawActivoTicket({ ID: 3, Accion: 'ENTREGA FINAL', Recurso_Accion: '' }),
+    rawActivoTicket({ ID: 3, Accion: 'ENTREGA FINAL', Recurso_Accion: '', Recurso_Soporte: '' }),
     rawActivoTicket({ ID: 4, Accion: 'REVISION CALIDAD', Recurso_Accion: 'Luis' }) // Calidad -> excluded from recursosServicios
   ];
   const tickets = mapper.normalizeTickets(rows);
@@ -1153,6 +1153,22 @@ test('buildActivos recursosServicios groups the Servicios bucket by recursoAccio
     { label: 'Ana', value: 2 },
     { label: 'Sin recurso', value: 1 }
   ]);
+});
+
+test('buildActivos assigned resource: Recurso_Accion, else Recurso_Entrega_Final (entrega acciones), else Recurso_Soporte; casing merged', () => {
+  const rows = [
+    rawActivoTicket({ ID: 1, Accion: 'REALIZAR', Recurso_Accion: 'LAURA SOFIA BELLO CABRERA' }),
+    rawActivoTicket({ ID: 2, Accion: 'CIERRE', Recurso_Accion: 'Laura Sofia Bello Cabrera' }),
+    rawActivoTicket({ ID: 3, Accion: 'REALIZAR', Recurso_Accion: '', Recurso_Soporte: 'Marlon Serna' }),
+    rawActivoTicket({ ID: 4, Accion: 'ENTREGA FINAL', Recurso_Accion: null, Recurso_Entrega_Final: 'JAIDER RAMIREZ', Recurso_Soporte: 'Marlon Serna' })
+  ];
+  const result = mapper.buildActivos(mapper.normalizeTickets(rows), {});
+  const byId = Object.fromEntries(result.rows.map((r) => [r.id, r.recursoAccion]));
+  assert.equal(byId[1], 'Laura Sofia Bello Cabrera');
+  assert.equal(byId[2], 'Laura Sofia Bello Cabrera');
+  assert.equal(byId[3], 'Marlon Serna');
+  assert.equal(byId[4], 'Jaider Ramirez');
+  assert.deepEqual(result.recursoOptions, ['Jaider Ramirez', 'Laura Sofia Bello Cabrera', 'Marlon Serna']);
 });
 
 /* -------- buildActivos: porCliente + hasCliente -------- */
@@ -1240,35 +1256,23 @@ test('buildActivos reports hasRequerimiento:true and sorted requerimientoOptions
 
 /* -------- buildActivos: filters -------- */
 
-test('buildActivos filters by Fecha Soporte Inicial range', () => {
+test('buildActivos filters by Fecha de creación (the Fecha column), not by Fecha Soporte Inicial', () => {
   const rows = [
-    rawActivoTicket({ ID: 1, Fecha_Soporte_Inicial: '2026-08-01T00:00:00' }),
-    rawActivoTicket({ ID: 2, Fecha_Soporte_Inicial: '2026-08-15T00:00:00' })
+    rawActivoTicket({ ID: 1, Fecha: '2026-08-01T00:00:00', Fecha_Soporte_Inicial: '2026-08-20T00:00:00' }),
+    rawActivoTicket({ ID: 2, Fecha: '2026-08-15T00:00:00', Fecha_Soporte_Inicial: '2026-08-02T00:00:00' })
   ];
   const tickets = mapper.normalizeTickets(rows);
-  const result = mapper.buildActivos(tickets, { fechaSoporteInicialFrom: '2026-08-01', fechaSoporteInicialTo: '2026-08-05' });
+  const result = mapper.buildActivos(tickets, { fechaCreacionFrom: '2026-08-01', fechaCreacionTo: '2026-08-05' });
   assert.equal(result.kpis.total, 1);
+  assert.equal(result.rows[0].id, 1);
 });
 
-test('buildActivos date-range bounds are inclusive by calendar day even when the ticket date carries a time component', () => {
+test('buildActivos creation-date bounds are inclusive by calendar day even when the ticket date carries a time component', () => {
   const rows = [
-    rawActivoTicket({ ID: 1, Fecha_Soporte_Inicial: '2026-08-05T14:30:00', Fecha_Entrega_Inicial: '2026-08-10T18:00:00' }),
-    rawActivoTicket({ ID: 2, Fecha_Soporte_Inicial: '2026-08-06T00:00:00', Fecha_Entrega_Inicial: '2026-08-11T00:00:00' })
+    rawActivoTicket({ ID: 1, Fecha: '2026-08-05T14:30:00' }),
+    rawActivoTicket({ ID: 2, Fecha: '2026-08-06T00:00:00' })
   ];
-  const tickets = mapper.normalizeTickets(rows);
-  const soporte = mapper.buildActivos(tickets, { fechaSoporteInicialFrom: '2026-08-05', fechaSoporteInicialTo: '2026-08-05' });
-  assert.equal(soporte.kpis.total, 1);
-  const entrega = mapper.buildActivos(tickets, { fechaEntregaInicialFrom: '2026-08-10', fechaEntregaInicialTo: '2026-08-10' });
-  assert.equal(entrega.kpis.total, 1);
-});
-
-test('buildActivos filters by Fecha Entrega Inicial range', () => {
-  const rows = [
-    rawActivoTicket({ ID: 1, Fecha_Entrega_Inicial: '2026-09-01T00:00:00' }),
-    rawActivoTicket({ ID: 2, Fecha_Entrega_Inicial: '2026-09-20T00:00:00' })
-  ];
-  const tickets = mapper.normalizeTickets(rows);
-  const result = mapper.buildActivos(tickets, { fechaEntregaInicialFrom: '2026-09-01', fechaEntregaInicialTo: '2026-09-10' });
+  const result = mapper.buildActivos(mapper.normalizeTickets(rows), { fechaCreacionFrom: '2026-08-05', fechaCreacionTo: '2026-08-05' });
   assert.equal(result.kpis.total, 1);
 });
 
@@ -1341,11 +1345,11 @@ test('buildActivos exposes ID/Recurso/Cliente/Producto/Accion/Asunto rows for th
 
 test('buildActivos rows respect the same date/requerimientos/recursos filters as kpis', () => {
   const rows = [
-    rawActivoTicket({ ID: 1, Accion: 'REALIZAR', Recurso_Accion: 'Ana', Fecha_Soporte_Inicial: '2026-08-01T00:00:00' }),
-    rawActivoTicket({ ID: 2, Accion: 'REALIZAR', Recurso_Accion: 'Luis', Fecha_Soporte_Inicial: '2026-08-15T00:00:00' })
+    rawActivoTicket({ ID: 1, Accion: 'REALIZAR', Recurso_Accion: 'Ana', Fecha: '2026-08-01T00:00:00' }),
+    rawActivoTicket({ ID: 2, Accion: 'REALIZAR', Recurso_Accion: 'Luis', Fecha: '2026-08-15T00:00:00' })
   ];
   const tickets = mapper.normalizeTickets(rows);
-  const result = mapper.buildActivos(tickets, { fechaSoporteInicialFrom: '2026-08-01', fechaSoporteInicialTo: '2026-08-05' });
+  const result = mapper.buildActivos(tickets, { fechaCreacionFrom: '2026-08-01', fechaCreacionTo: '2026-08-05' });
   assert.equal(result.rows.length, 1);
   assert.equal(result.rows[0].id, 1);
 });
@@ -1588,4 +1592,49 @@ test('buildSegundoNivel on data/sample-tickets.json matches the confirmed busine
     { label: 'Rubén Darío Cantor Villarreal', value: 1 },
     { label: 'OSCAR MAURICIO LOPEZ MORALES', value: 1 }
   ]);
+});
+
+/* ==================== Primer Nivel: Tickets creados vs. Segundo Nivel por día ==================== */
+
+test('buildTicketsDiarios counts tickets by creation day and by Fecha inicial de diagnóstico de calidad, whole source', () => {
+  const rows = [
+    rawActivoTicket({ ID: 1, Fecha: '2026-08-01T09:00:00', Estado: 2, Fecha_Inicial_Diagnostico_Calidad: '2026-08-02T00:00:00' }),
+    rawActivoTicket({ ID: 2, Fecha: '2026-08-01T00:00:00', Accion: 'CREAR', Fecha_Inicial_Diagnostico_Calidad: null }),
+    rawActivoTicket({ ID: 3, Fecha: '2026-08-03T00:00:00', Fecha_Inicial_Diagnostico_Calidad: '2026-08-03T00:00:00' })
+  ];
+  const r = mapper.buildTicketsDiarios(mapper.normalizeTickets(rows), { fechaCreacionFrom: '2026-08-01', fechaCreacionTo: '2026-08-03' });
+  assert.equal(r.hasFechaCalidad, true);
+  assert.deepEqual(r.dias, ['2026-08-01', '2026-08-02', '2026-08-03']);
+  assert.deepEqual(r.creados, [2, 0, 1]);        // any Estado / Acción counts as created
+  assert.deepEqual(r.segundoNivel, [0, 1, 1]);
+  assert.deepEqual(r.totales, { creados: 3, segundoNivel: 2 });
+});
+
+test('buildTicketsDiarios without a range shows the last 30 days up to the latest date; no quality column -> null series', () => {
+  const rows = [rawActivoTicket({ ID: 1, Fecha: '2026-08-31T00:00:00' }), rawActivoTicket({ ID: 2, Fecha: '2026-06-01T00:00:00' })];
+  const r = mapper.buildTicketsDiarios(mapper.normalizeTickets(rows), {});
+  assert.equal(r.hasFechaCalidad, false);
+  assert.equal(r.segundoNivel, null);
+  assert.equal(r.dias.length, 30);
+  assert.equal(r.periodo.from, '2026-08-02');
+  assert.equal(r.periodo.to, '2026-08-31');
+  assert.equal(r.totales.creados, 1);
+});
+
+/* ==================== Capacidad: Total Tickets Atendidos = CountAll ==================== */
+
+test('buildTicketStatsPorRecurso.todos counts every ticket in the period, beyond the team and with blank IDs', () => {
+  const tickets = mapper.normalizeTickets([
+    rawTicketWithHours({ ID: 1, Recurso_Soporte: 'Ana Perez', Minutos: '10' }),
+    rawTicketWithHours({ ID: 2, Recurso_Soporte: 'Otra Persona', Minutos: '30' }),
+    rawTicketWithHours({ ID: null, Recurso_Soporte: 'Ana Perez' }),
+    rawTicketWithHours({ ID: 4, Recurso_Soporte: 'Ana Perez', Fecha: '2026-04-15T00:00:00' }) // out of period
+  ]);
+  const base = { from: '2026-03-01', to: '2026-03-31', recursos: ['Ana Perez'] };
+  const s = mapper.buildTicketStatsPorRecurso(tickets, base);
+  assert.equal(s.totales.tickets, 1);   // team bars: Ana, non-blank ID
+  assert.equal(s.todos.tickets, 3);     // CountAll
+  assert.equal(s.todos.promedioMinutos, 20);
+  const picked = mapper.buildTicketStatsPorRecurso(tickets, Object.assign({}, base, { recursosSeleccion: ['Ana Perez'] }));
+  assert.equal(picked.todos.tickets, 2); // explicit pick narrows it
 });

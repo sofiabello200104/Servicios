@@ -271,10 +271,12 @@
     window.SOFIA_RENDER.wireCapRecursosMultiSelect();
     window.SOFIA_RENDER.wireDrilldownModal();
 
-    ['filter-act-soporte-desde', 'filter-act-soporte-hasta', 'filter-act-entrega-desde', 'filter-act-entrega-hasta'].forEach((id) => {
+    ['filter-act-creacion-desde', 'filter-act-creacion-hasta'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.addEventListener('change', () => window.SOFIA_RENDER.rerenderActivosWithCurrentFilters());
     });
+    const actAccionSel = document.getElementById('filter-act-accion');
+    if (actAccionSel) actAccionSel.addEventListener('change', () => window.SOFIA_RENDER.onActAccionChange(actAccionSel.value));
     const btnActLimpiar = document.getElementById('btn-act-limpiar');
     if (btnActLimpiar) btnActLimpiar.addEventListener('click', () => window.SOFIA_RENDER.clearActivosFilters());
     window.SOFIA_RENDER.wireActRequerimientosMultiSelect();

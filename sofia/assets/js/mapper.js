@@ -356,6 +356,18 @@
     // Power BI's Promedio, which ignores blanks).
     var minutosCol = Object.keys(rows[0]).find(function (k) { return normKey(k) === 'minutos'; }) || null;
 
+    // "Fecha inicial de diagnóstico de calidad" (date a ticket went to the
+    // second level / Calidad). Its exact OData name is not confirmed yet, so
+    // any column whose normalized name has both "fecha" and "diagnostico"
+    // qualifies (Fecha_Inicial_Diagnostico_Calidad, Fecha_Inicial_de_
+    // Diagnostico_de_Calidad, ...). The plain `Diagnostico` text column has
+    // no "fecha" and is never picked. Absent -> undefined on every ticket
+    // (lets buildTicketsDiarios tell "no column" from "no value").
+    var diagCalidadCol = Object.keys(rows[0]).find(function (k) {
+      var nk = normKey(k);
+      return nk.indexOf('fecha') !== -1 && nk.indexOf('diagnostico') !== -1;
+    }) || null;
+
     var tickets = rows.map(function (row) {
       var fechaRaw = row[col('fecha', 'Fecha')];
       var fecha = parseFecha(fechaRaw);
@@ -404,6 +416,7 @@
         tiempoEmpleadoEntrega: fillOrDefault(row[col('tiempoEmpleadoEntrega', 'Tiempo_empleado_entrega')]),
         tiempoDeLlamada: fillOrDefault(row[col('tiempoDeLlamada', 'Tiempo_de_llamada')]),
         minutos: minutosCol ? parseTiempoLlamada(row[minutosCol]) : undefined,
+        fechaDiagnosticoCalidad: diagCalidadCol ? parseFecha(row[diagCalidadCol]) : undefined,
         // Raw HH:MM strings (or null) — kept un-normalized (not "Sin dato")
         // because ticketHours() needs to distinguish "absent" from a real value.
         horaCalInicial: row[col('horaCalInicial', 'Hora_Cal_Inicial')] != null ? row[col('horaCalInicial', 'Hora_Cal_Inicial')] : null,
@@ -1090,6 +1103,25 @@
 
     var totalTickets = porRecurso.reduce(function (s, r) { return s + r.tickets; }, 0);
     var totalMinutos = porRecurso.reduce(function (s, r) { return s + r.minutosSum; }, 0);
+
+    // "Total Tickets Atendidos" KPI = CountAll over ID12086_Tickets_medidor:
+    // every ticket row whose Fecha falls in [from, to], whatever its resource
+    // (not only the Capacidad team) and even with a blank ID. Cliente/
+    // Proyecto still apply, and so does an EXPLICIT Recursos pick
+    // (filters.recursosSeleccion, empty = everyone) -- the implicit "whole
+    // team" default does not narrow it.
+    var seleccion = Array.isArray(filters.recursosSeleccion) && filters.recursosSeleccion.length
+      ? filters.recursosSeleccion.map(keyOf) : null;
+    var todosTickets = 0, todosMinutos = 0, todosConMinutos = 0;
+    tickets.forEach(function (t) {
+      var d = t.fecha ? asUTCDate(t.fecha) : null;
+      if (!d || d.getTime() < from.getTime() || d.getTime() > to.getTime()) return;
+      if (filters.cliente && filters.cliente !== 'all' && t.cliente !== filters.cliente) return;
+      if (filters.proyecto && filters.proyecto !== 'all' && proyectoLabel(t.proyecto) !== proyectoLabel(filters.proyecto)) return;
+      if (seleccion && seleccion.indexOf(keyOf(t.recursoSoporte)) === -1) return;
+      todosTickets += 1;
+      if (typeof t.minutos === 'number' && isFinite(t.minutos)) { todosMinutos += t.minutos; todosConMinutos += 1; }
+    });
     var totalConMinutos = porRecurso.reduce(function (s, r) { return s + r.conMinutos; }, 0);
 
     return {
@@ -1099,6 +1131,11 @@
         tickets: totalTickets,
         conMinutos: totalConMinutos,
         promedioMinutos: avg(totalMinutos, totalConMinutos)
+      },
+      todos: {
+        tickets: todosTickets,
+        conMinutos: todosConMinutos,
+        promedioMinutos: avg(todosMinutos, todosConMinutos)
       },
       periodo: { from: isoDate(from), to: isoDate(to) }
     };
@@ -1194,6 +1231,69 @@
     return { rows: rows, total: total };
   }
 
+  // buildTicketsDiarios(tickets, filters): per-day series for Primer Nivel's
+  // "Tickets creados vs. Segundo Nivel (Calidad)" line chart, over the WHOLE
+  // ID12086_Tickets_medidor source (any Estado / Acción):
+  //   - creados[i]      = tickets whose Fecha (creación) is that day
+  //   - segundoNivel[i] = tickets whose Fecha inicial de diagnóstico de
+  //                       calidad is that day (null series when the column
+  //                       is absent from the template -> hasFechaCalidad)
+  // filters = { fechaCreacionFrom, fechaCreacionTo } (the view's Fecha de
+  // creación filter). Without a range: the last 30 days up to the latest
+  // date present in either series, so the chart never spans years of data.
+  var TICKETS_DIARIOS_DEFAULT_DIAS = 30;
+  function buildTicketsDiarios(tickets, filters) {
+    filters = filters || {};
+    tickets = Array.isArray(tickets) ? tickets : [];
+    var hasFechaCalidad = tickets.some(function (t) { return t.fechaDiagnosticoCalidad !== undefined; });
+
+    var creadosByDay = {}, calidadByDay = {};
+    var maxDay = null, minDay = null;
+    function note(d) {
+      if (!maxDay || d.getTime() > maxDay.getTime()) maxDay = d;
+      if (!minDay || d.getTime() < minDay.getTime()) minDay = d;
+    }
+    tickets.forEach(function (t) {
+      var c = t.fecha ? asUTCDate(t.fecha) : null;
+      if (c) { var kc = isoDate(c); creadosByDay[kc] = (creadosByDay[kc] || 0) + 1; note(c); }
+      var q = t.fechaDiagnosticoCalidad ? asUTCDate(t.fechaDiagnosticoCalidad) : null;
+      if (q) { var kq = isoDate(q); calidadByDay[kq] = (calidadByDay[kq] || 0) + 1; note(q); }
+    });
+
+    var from = filters.fechaCreacionFrom ? asUTCDate(filters.fechaCreacionFrom) : null;
+    var to = filters.fechaCreacionTo ? asUTCDate(filters.fechaCreacionTo) : null;
+    if (!to) to = maxDay;
+    if (!from && to) {
+      from = new Date(to.getTime());
+      from.setUTCDate(from.getUTCDate() - (TICKETS_DIARIOS_DEFAULT_DIAS - 1));
+      // An explicit "desde" alone keeps everything from that day on.
+      if (filters.fechaCreacionFrom) from = asUTCDate(filters.fechaCreacionFrom);
+    }
+    if (!from || !to || from.getTime() > to.getTime()) {
+      return { dias: [], creados: [], segundoNivel: hasFechaCalidad ? [] : null, hasFechaCalidad: hasFechaCalidad,
+        totales: { creados: 0, segundoNivel: hasFechaCalidad ? 0 : null }, periodo: null };
+    }
+
+    var dias = [], creados = [], segundoNivel = [];
+    var cur = new Date(from.getTime());
+    while (cur.getTime() <= to.getTime()) {
+      var k = isoDate(cur);
+      dias.push(k);
+      creados.push(creadosByDay[k] || 0);
+      segundoNivel.push(calidadByDay[k] || 0);
+      cur.setUTCDate(cur.getUTCDate() + 1);
+    }
+    function sum(a) { return a.reduce(function (s, v) { return s + v; }, 0); }
+    return {
+      dias: dias,
+      creados: creados,
+      segundoNivel: hasFechaCalidad ? segundoNivel : null,
+      hasFechaCalidad: hasFechaCalidad,
+      totales: { creados: sum(creados), segundoNivel: hasFechaCalidad ? sum(segundoNivel) : null },
+      periodo: { from: isoDate(from), to: isoDate(to) }
+    };
+  }
+
   /* ==================== Tickets Activos ====================
      Business rules confirmed with the user (see test/mapper.test.js's
      "Tickets Activos" section and README.md's matching documentation
@@ -1239,9 +1339,26 @@
       .sort(function (a, b) { return b.value - a.value; });
   }
 
-  // buildActivos(tickets, filters): filters = { fechaSoporteInicialFrom,
-  // fechaSoporteInicialTo, fechaEntregaInicialFrom, fechaEntregaInicialTo,
-  // requerimientos, recursos }. tickets must already be normalized.
+  // recursoAsignado(t): the user a Primer Nivel ticket is assigned to.
+  // Recurso_Accion first (the owner of the current acción); when the feed
+  // leaves it empty, the owner implied by the acción itself -- Recurso_
+  // Entrega_Final for the entrega acciones, Recurso_Soporte otherwise.
+  // Title-Cased like recursoSoporte, so "LAURA SOFIA BELLO CABRERA" and
+  // "Laura Sofia Bello Cabrera" are one person (accent variants are fused
+  // afterwards by resolveRecursoDisplayNames inside buildActivos).
+  var ENTREGA_ACCIONES = ['ENTREGA FINAL', 'AGENDA ENTREGA FINAL'];
+  function recursoAsignado(t) {
+    function valid(v) { return v && v !== 'Sin recurso' && v !== 'Sin dato'; }
+    if (valid(t.recursoAccion)) return toTitleCase(t.recursoAccion);
+    if (ENTREGA_ACCIONES.indexOf(t.accionNorm) !== -1 && valid(t.recursoEntregaFinal)) return toTitleCase(t.recursoEntregaFinal);
+    if (valid(t.recursoSoporte)) return toTitleCase(t.recursoSoporte);
+    return 'Sin recurso';
+  }
+
+  // buildActivos(tickets, filters): filters = { fechaCreacionFrom,
+  // fechaCreacionTo, requerimientos, recursos }. "Fecha de creación" is the
+  // ticket's `Fecha` column. tickets must already be normalized. Every
+  // resource dimension (charts, Recurso filter, table) uses recursoAsignado.
   //   - filters.recursos: free multi-select over Recurso_Accion, isAllSelector
   //     semantics (empty/['all'] = no filter) -- same as Capacidad's Recursos
   //     and Segundo Nivel's own filters.recursos. Narrows `filtered` before
@@ -1257,6 +1374,10 @@
     // Universe first (Estado + Accion), independent of the optional filters
     // below -- matches "filters apply on top of the universe" from the spec.
     var universe = tickets.filter(function (t) { return t.estado === 1 && t.accionNorm !== 'CREAR'; });
+    var displayName = resolveRecursoDisplayNames(universe.map(recursoAsignado));
+    function recursoDe(t) { var n = recursoAsignado(t); return n === 'Sin recurso' ? n : displayName(n); }
+    var recursoDeTicket = new Map();
+    universe.forEach(function (t) { recursoDeTicket.set(t, recursoDe(t)); });
 
     // requerimientoOptions/recursoOptions reflect the whole active universe,
     // not narrowed by the currently applied filters (same "options don't
@@ -1265,12 +1386,10 @@
     var requerimientoOptions = hasRequerimiento
       ? Array.from(new Set(universe.map(function (t) { return t.requerimientoOpcion; }).filter(Boolean))).sort()
       : [];
-    var recursoOptions = Array.from(new Set(universe.map(function (t) { return t.recursoAccion; }))).sort();
+    var recursoOptions = Array.from(new Set(universe.map(function (t) { return recursoDeTicket.get(t); }))).sort();
 
-    var soporteFrom = filters.fechaSoporteInicialFrom ? asUTCDate(filters.fechaSoporteInicialFrom) : null;
-    var soporteTo = filters.fechaSoporteInicialTo ? asUTCDate(filters.fechaSoporteInicialTo) : null;
-    var entregaFrom = filters.fechaEntregaInicialFrom ? asUTCDate(filters.fechaEntregaInicialFrom) : null;
-    var entregaTo = filters.fechaEntregaInicialTo ? asUTCDate(filters.fechaEntregaInicialTo) : null;
+    var creacionFrom = filters.fechaCreacionFrom ? asUTCDate(filters.fechaCreacionFrom) : null;
+    var creacionTo = filters.fechaCreacionTo ? asUTCDate(filters.fechaCreacionTo) : null;
     var requerimientosFilter = isAllSelector(filters.requerimientos) ? null : filters.requerimientos;
     var recursosFilter = isAllSelector(filters.recursos) ? null : filters.recursos;
 
@@ -1286,10 +1405,9 @@
     }
 
     var filtered = universe.filter(function (t) {
-      if (outsideRange(t.fechaSoporteInicial, soporteFrom, soporteTo)) return false;
-      if (outsideRange(t.fechaEntregaInicial, entregaFrom, entregaTo)) return false;
+      if (outsideRange(t.fecha, creacionFrom, creacionTo)) return false;
       if (requerimientosFilter && requerimientosFilter.indexOf(t.requerimientoOpcion) === -1) return false;
-      if (recursosFilter && recursosFilter.indexOf(t.recursoAccion) === -1) return false;
+      if (recursosFilter && recursosFilter.indexOf(recursoDeTicket.get(t)) === -1) return false;
       return true;
     });
 
@@ -1309,7 +1427,7 @@
 
       if (ACTIVOS_SERVICIOS_ACCIONES.indexOf(t.accionNorm) !== -1) {
         serviciosIds.add(t.id);
-        recursosServiciosCount[t.recursoAccion] = (recursosServiciosCount[t.recursoAccion] || 0) + 1;
+        recursosServiciosCount[recursoDeTicket.get(t)] = (recursosServiciosCount[recursoDeTicket.get(t)] || 0) + 1;
       } else if (ACTIVOS_CALIDAD_ACCIONES.indexOf(t.accionNorm) !== -1) {
         calidadIds.add(t.id);
       }
@@ -1329,7 +1447,7 @@
     var rows = filtered.map(function (t) {
       return {
         id: t.id,
-        recursoAccion: t.recursoAccion,
+        recursoAccion: recursoDeTicket.get(t),
         cliente: t.cliente, // null while the Cliente column is absent -> UI shows "—"
         producto: t.producto,
         accion: t.accionNorm,
@@ -1519,6 +1637,7 @@
     capacityStatus: capacityStatus,
     buildCapacidad: buildCapacidad,
     buildTicketStatsPorRecurso: buildTicketStatsPorRecurso,
+    buildTicketsDiarios: buildTicketsDiarios,
     buildRecursoTickets: buildRecursoTickets,
     buildActivos: buildActivos,
     buildSegundoNivel: buildSegundoNivel
