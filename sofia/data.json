@@ -1,26 +1,19 @@
 {
   "configuracion_jornada": {
     "marco_legal": "Reforma laboral Colombia (42 horas semanales)",
+    "regla_agendamiento": "Conexiones de lunes a viernes de 08:00 a 12:00 y de 14:00 a 17:00 (7 h netas por día). Las franjas de trámite no hacen parte de la capacidad base; si en ellas se agenda una actividad, sus horas se suman a la capacidad instalada del recurso.",
     "lunes_a_jueves": {
-      "jornada_bruta_horas": 9.1667,
       "horarios_detalle": [
         {
-          "inicio": "07:10",
-          "fin": "12:50",
-          "duracion_horas": 5.6667
+          "inicio": "08:00",
+          "fin": "12:50"
         },
         {
           "inicio": "14:00",
-          "fin": "17:30",
-          "duracion_horas": 3.5
+          "fin": "17:30"
         }
       ],
-      "bloques_protegidos_no_agendables": [
-        {
-          "inicio": "07:50",
-          "fin": "08:00",
-          "duracion_minutos": 10
-        },
+      "franjas_tramite": [
         {
           "inicio": "12:00",
           "fin": "12:50",
@@ -32,39 +25,29 @@
           "duracion_minutos": 30
         }
       ],
-      "total_protegido_horas": 1.5,
-      "capacidad_neta_agendable_horas": 7.6667
+      "capacidad_neta_agendable_horas": 7.0
     },
     "viernes": {
-      "jornada_bruta_horas": 8.0,
       "horarios_detalle": [
         {
-          "inicio": "07:50",
-          "fin": "12:50",
-          "duracion_horas": 5.0
+          "inicio": "08:00",
+          "fin": "12:50"
         },
         {
           "inicio": "14:00",
-          "fin": "17:00",
-          "duracion_horas": 3.0
+          "fin": "17:00"
         }
       ],
-      "bloques_protegidos_no_agendables": [
-        {
-          "inicio": "07:50",
-          "fin": "08:00",
-          "duracion_minutos": 10
-        },
+      "franjas_tramite": [
         {
           "inicio": "12:00",
           "fin": "12:50",
           "duracion_minutos": 50
         }
       ],
-      "total_protegido_horas": 1.0,
       "capacidad_neta_agendable_horas": 7.0
     },
-    "capacidad_semanal_neta_horas": 37.6667
+    "capacidad_semanal_neta_horas": 35.0
   },
   "logica_calculo_metricas": {
     "horas_ticket": "Hora_Cal_Final - Hora_Cal_Inicial + (Hora_Cal_Final_3 - Hora_Cal_Inicial_3)",

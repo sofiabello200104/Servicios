@@ -383,56 +383,26 @@
     }
   }
 
-  /* -------- Charts -------- */
-
-  function renderCapCharts(result, filters) {
-    // Horizontal bar: Consumo por Proyecto — top 15 desc, title + data
-    // dynamic on the Cliente filter (already restricted to that cliente's
-    // rows by buildCapacidad, since `filters.cliente` narrows `rows` there —
-    // no separate re-filtering needed here). Project names run long, so the
-    // axis shows a truncated label (full name in the tooltip title).
-    const titleEl = document.getElementById('chart-cap-proyecto-title');
-    if (titleEl) {
-      titleEl.textContent = (filters.cliente && filters.cliente !== 'all')
-        ? 'Consumo por Proyecto - ' + filters.cliente
-        : 'Consumo por Proyecto (Global)';
-    }
-    const top15 = result.porProyecto.slice(0, 15);
-    C.chartEmptyState('chart-cap-proyecto', top15.length === 0, 'Sin horas agendadas para el período y filtros seleccionados');
-    const proyectoFull = top15.map((p) => p.proyecto);
-    const proyectoShort = proyectoFull.map((name) => name.length > 28 ? name.slice(0, 26) + '…' : name);
-    C.barChart('chart-cap-proyecto', [{
-      label: 'Horas',
-      data: top15.map((p) => +p.horas.toFixed(1)),
-      backgroundColor: C.COLORS.brand
-    }], {
-      horizontal: true, legend: false, labels: proyectoShort,
-      yOpts: { ticks: { autoSkip: false, font: { size: 10 } } },
-      tooltipOpts: { callbacks: {
-        title: (items) => proyectoFull[items[0].dataIndex],
-        label: (ctx) => ctx.parsed.x.toFixed(1) + ' h (' + top15[ctx.dataIndex].pct.toFixed(1) + '%)'
-      } }
-    });
-  }
-
   /* -------- Grouped bar: Avg minutes + ticket count per resource -------- */
 
   const CAP_TICKETS_COLORS = { promedio: '#0099FF', recuento: '#002299' };
 
-  // "Primer nombre + primer apellido" for the X axis (Colombian convention:
-  // with 4+ words the first surname is the 3rd word), full name in the
-  // tooltip. Same rule as initialsFromName in mapper.js.
-  function shortRecursoName(full) {
+  // Full name on the X axis, split in two lines (nombres / apellidos) so the
+  // 12 people fit side by side without rotating the labels. Chart.js draws
+  // an array label as one line per item. With 4+ words the split falls after
+  // the 2nd word (Colombian convention: two given names, two surnames).
+  function axisRecursoName(full) {
     const w = String(full || '').trim().split(/\s+/);
-    if (w.length <= 2) return w.join(' ');
-    return w[0] + ' ' + (w.length >= 4 ? w[2] : w[1]);
+    if (w.length <= 2) return w;
+    const cut = w.length >= 4 ? 2 : 1;
+    return [w.slice(0, cut).join(' '), w.slice(cut).join(' ')];
   }
 
   // ticketStats = M.buildTicketStatsPorRecurso(tickets, filters): one row per
   // resource in the filter's team (0-ticket people included), in list order.
   function renderCapTicketsBar(ticketStats) {
     const rows = ticketStats.porRecurso;
-    const labels = rows.map((r) => shortRecursoName(r.recurso));
+    const labels = rows.map((r) => axisRecursoName(r.recurso));
     const fullNames = rows.map((r) => r.recurso);
     // null (no Minutos value) -> no bar and no label, rather than a fake 0.
     const avgData = rows.map((r) => r.promedioMinutos);
@@ -489,7 +459,7 @@
     ], {
       labels: labels,
       dataLabels: true,
-      xOpts: { ticks: { autoSkip: false, font: { size: 10 }, maxRotation: 40, minRotation: 0 } },
+      xOpts: { ticks: { autoSkip: false, font: { size: 11 }, maxRotation: 0, minRotation: 0 } },
       yOpts: { beginAtZero: true, grace: '12%', title: { display: true, text: 'Minutos / Tickets', color: '#94A3B8', font: { size: 11 } } },
       tooltipOpts: {
         callbacks: {
@@ -656,7 +626,14 @@
           '<span class="cap-progress-pct">' + formatPct(r.pct) + '%</span>' +
         '</div>' +
         '<dl class="cap-card-stats">' +
-          '<div class="cap-card-stat"><dt>Capacidad</dt><dd>' + formatHoras(r.capacidad) + ' h</dd></div>' +
+          // Capacity = 7 h/día base + hours booked inside the franjas de
+          // trámite (12:00-12:50, 17:00-17:30); the extra is shown so the
+          // figure can be traced back.
+          '<div class="cap-card-stat"' + (r.horasEnFranjaTramite > 0
+            ? ' title="Base ' + formatHoras(r.capacidadBase) + ' h + ' + formatHoras(r.horasEnFranjaTramite) + ' h agendadas en franjas de trámite"' : '') + '>' +
+            '<dt>Capacidad</dt><dd>' + formatHoras(r.capacidad) + ' h' +
+            (r.horasEnFranjaTramite > 0 ? '<span class="block text-[10px] font-medium text-sky-700">+' + formatHoras(r.horasEnFranjaTramite) + ' h en trámite</span>' : '') +
+            '</dd></div>' +
           '<div class="cap-card-stat"><dt>Reservadas</dt><dd>' + formatHoras(r.reservadas) + ' h</dd></div>' +
           '<div class="cap-card-stat"><dt>Disponibles</dt><dd>' + formatHoras(r.disponibles) + ' h</dd></div>' +
         '</dl>' +
@@ -712,7 +689,6 @@
     const ticketStats = M.buildTicketStatsPorRecurso(tickets, filters);
 
     renderCapKpis(result, ticketStats);
-    renderCapCharts(result, filters);
     renderCapTicketsBar(ticketStats);
     renderCapTable(result, filters);
   }

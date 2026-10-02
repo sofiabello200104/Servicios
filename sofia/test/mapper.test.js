@@ -118,12 +118,12 @@ test('filterRecursosByList keeps every row when the list is empty or missing', (
   assert.equal(mapper.filterRecursosByList(rows, undefined).length, 2);
 });
 
-test('CAP_CARD_RECURSOS: all 13 listed people match a resource in data/sample-tickets.json', () => {
+test('CAP_CARD_RECURSOS: all 12 listed people match a resource in data/sample-tickets.json', () => {
   const tickets = mapper.normalizeTickets(require(path.join('..', 'data', 'sample-tickets.json')));
   const porRecurso = mapper.buildCapacidad(tickets, {}, []).porRecurso;
   const shown = mapper.filterRecursosByList(porRecurso, mapper.CAP_CARD_RECURSOS);
-  assert.equal(mapper.CAP_CARD_RECURSOS.length, 13);
-  assert.equal(shown.length, 13);
+  assert.equal(mapper.CAP_CARD_RECURSOS.length, 12);
+  assert.equal(shown.length, 12);
 });
 
 /* ==================== Priority grouping ==================== */
@@ -402,15 +402,12 @@ test('countWorkingDays counts Mon-Thu and Fri separately across a known week', (
   assert.equal(wd.fri, 1);
 });
 
-test('periodCapacity derives from the JORNADA constant (not a second hardcoded copy)', () => {
-  // 4 * 7.6667 + 1 * 7.0 = 37.6668. This is 0.0001h off the 37.6667 weekly
-  // figure data.json prints under configuracion_jornada.capacidad_semanal_neta_horas
-  // -- that figure was computed from the *unrounded* 23/3 and only rounded at
-  // the end, while periodCapacity() multiplies the already-4-decimal-rounded
-  // JORNADA.lunesAJueves value (also copied verbatim from data.json) by 4.
-  // Documented deviation, not a bug.
+test('periodCapacity derives from the JORNADA constant: 7 h per working day, Mon-Fri', () => {
+  // 08:00-12:00 + 14:00-17:00 = 7 h every working day -> 5 * 7 = 35 h a week.
   const cap = mapper.periodCapacity('2026-03-02', '2026-03-08');
-  assert.equal(cap, 37.6668);
+  assert.equal(mapper.JORNADA.lunesAJueves.capacidadNetaAgendableHoras, 7);
+  assert.equal(mapper.JORNADA.viernes.capacidadNetaAgendableHoras, 7);
+  assert.equal(cap, 35);
 });
 
 /* -------- capacityStatus -------- */
@@ -444,18 +441,18 @@ test('buildCapacidad computes capacidad/reservadas/pct/estado and shows idle res
   const tickets = mapper.normalizeTickets(rows);
   const resumen = mapper.buildCapacidad(tickets, { from: '2026-03-02', to: '2026-03-02' });
 
-  // 1 Monday => monThu=1 => periodCapacity = 7.6667h per resource; team of 2.
-  assert.equal(resumen.kpis.capacidad, 15.3334);
+  // 1 Monday => periodCapacity = 7 h per resource; team of 2.
+  assert.equal(resumen.kpis.capacidad, 14);
   assert.equal(resumen.kpis.reservadas, 4);
-  assert.equal(resumen.kpis.disponibles, 11.3334);
-  assert.equal(resumen.kpis.utilizacionPct, +(4 / 15.3334 * 100).toFixed(4));
+  assert.equal(resumen.kpis.disponibles, 10);
+  assert.equal(resumen.kpis.utilizacionPct, +(4 / 14 * 100).toFixed(4));
   assert.equal(resumen.kpis.estado, 'Alta Disponibilidad');
 
   const byRecurso = Object.fromEntries(resumen.porRecurso.map((r) => [r.recurso, r]));
   assert.equal(byRecurso['Ana Perez'].reservadas, 4);
-  assert.equal(byRecurso['Ana Perez'].capacidad, 7.6667);
+  assert.equal(byRecurso['Ana Perez'].capacidad, 7);
   assert.equal(byRecurso['Luis Gomez'].reservadas, 0);
-  assert.equal(byRecurso['Luis Gomez'].capacidad, 7.6667);
+  assert.equal(byRecurso['Luis Gomez'].capacidad, 7);
   assert.equal(byRecurso['Luis Gomez'].estado, 'Alta Disponibilidad');
 });
 
@@ -617,7 +614,7 @@ test('buildCapacidad filters rows by cliente (narrows reservadas only, team/capa
   const resumen = mapper.buildCapacidad(tickets, { from: '2026-03-02', to: '2026-03-02', cliente: 'ACME' });
   assert.equal(resumen.kpis.reservadas, 2); // only the Acme block
   assert.equal(resumen.porRecurso.length, 1);
-  assert.equal(resumen.porRecurso[0].capacidad, 7.6667); // capacity untouched by the cliente filter
+  assert.equal(resumen.porRecurso[0].capacidad, 7); // capacity untouched by the cliente filter
 });
 
 /* ==================== Spec v2: parseTiempoLlamada ==================== */
@@ -735,7 +732,55 @@ test('countWorkingDays/periodCapacity skip Colombian holidays', () => {
   assert.equal(wd.monThu, 3);
   assert.equal(wd.fri, 1);
   const cap = mapper.periodCapacity('2026-07-20', '2026-07-26');
-  assert.equal(cap, +(3 * 7.6667 + 1 * 7.0).toFixed(4));
+  assert.equal(cap, 4 * 7);
+});
+
+/* ==================== Franjas de trámite (12:00-12:50, 17:00-17:30) ==================== */
+
+test('tramiteOverlapHours: only the part of a block inside the trámite slots counts, by weekday', () => {
+  // 2026-03-02 is a Monday, 2026-03-06 a Friday, 2026-03-07 a Saturday.
+  assert.equal(mapper.tramiteOverlapHours('2026-03-02', 8, 12), 0);          // connection window
+  assert.equal(mapper.tramiteOverlapHours('2026-03-02', 12, 12 + 50 / 60), 0.8333);
+  assert.equal(mapper.tramiteOverlapHours('2026-03-02', 11, 13), 0.8333);    // only 12:00-12:50
+  assert.equal(mapper.tramiteOverlapHours('2026-03-02', 16.5, 17.5), 0.5);   // only 17:00-17:30
+  assert.equal(mapper.tramiteOverlapHours('2026-03-06', 17, 17.5), 0);       // Friday ends at 17:00
+  assert.equal(mapper.tramiteOverlapHours('2026-03-06', 12, 12.5), 0.5);
+  assert.equal(mapper.tramiteOverlapHours('2026-03-07', 12, 13), 0);         // weekend
+  assert.equal(mapper.tramiteOverlapHours('2026-07-20', 12, 13), 0);         // holiday
+  assert.equal(mapper.tramiteOverlapHours(null, 12, 13), 0);
+});
+
+test('buildCapacidad adds hours booked inside trámite slots to that resource capacity only', () => {
+  const tickets = mapper.normalizeTickets([
+    rawTicketWithHours({ ID: 1, Recurso_Soporte: 'Ana Perez', Hora_Cal_Inicial: '08:00', Hora_Cal_Final: '12:00' }),
+    rawTicketWithHours({ ID: 2, Recurso_Soporte: 'Ana Perez', Hora_Cal_Inicial: '12:00', Hora_Cal_Final: '12:50' }),
+    rawTicketWithHours({ ID: 3, Recurso_Soporte: 'Luis Gomez', Hora_Cal_Inicial: '14:00', Hora_Cal_Final: '17:00' })
+  ]);
+  const r = mapper.buildCapacidad(tickets, { from: '2026-03-02', to: '2026-03-02' });
+  const by = Object.fromEntries(r.porRecurso.map((x) => [x.recurso, x]));
+  assert.equal(by['Ana Perez'].capacidad, 7.8333);
+  assert.equal(by['Ana Perez'].horasEnFranjaTramite, 0.8333);
+  assert.equal(by['Ana Perez'].reservadas, 4.8333);
+  assert.equal(by['Luis Gomez'].capacidad, 7);
+  assert.equal(r.kpis.capacidad, 14.8333);
+});
+
+test('buildCapacidad counts extra-source activities (e.g. Capacitación) in trámite slots too', () => {
+  const tickets = mapper.normalizeTickets([rawTicketWithHours({ ID: 1, Recurso_Soporte: 'Ana Perez' })]);
+  const extra = [{ recurso: 'Ana Perez', fecha: new Date(Date.UTC(2026, 2, 2)), horas: 0.5, horaInicio: 17, horaFin: 17.5, fuente: 'Capacitación' }];
+  const r = mapper.buildCapacidad(tickets, { from: '2026-03-02', to: '2026-03-02' }, extra);
+  assert.equal(r.porRecurso[0].capacidad, 7.5);
+  assert.equal(r.porRecurso[0].reservadas, 0.5);
+});
+
+test('trámite-slot hours extend capacity regardless of the Cliente filter', () => {
+  const tickets = mapper.normalizeTickets([
+    rawTicketWithHours({ ID: 1, Recurso_Soporte: 'Ana Perez', Cliente: 'Acme', Hora_Cal_Inicial: '08:00', Hora_Cal_Final: '09:00' }),
+    rawTicketWithHours({ ID: 2, Recurso_Soporte: 'Ana Perez', Cliente: 'Globex', Hora_Cal_Inicial: '12:00', Hora_Cal_Final: '12:50' })
+  ]);
+  const r = mapper.buildCapacidad(tickets, { from: '2026-03-02', to: '2026-03-02', cliente: 'ACME' });
+  assert.equal(r.porRecurso[0].capacidad, 7.8333);
+  assert.equal(r.porRecurso[0].reservadas, 1);
 });
 
 /* ==================== Spec v3: buildRecursoTickets (drill-down) ==================== */

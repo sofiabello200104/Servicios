@@ -205,22 +205,19 @@
         <!-- Calculation memo banner -->
         <div id="cap-calculo-banner" class="flex items-start gap-2 bg-sky-50 border border-sky-200 rounded-xl px-4 py-2.5 mb-6 text-[11px] text-sky-800">
           <svg class="w-4 h-4 shrink-0 mt-0.5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <span><strong>Memoria de cálculo:</strong> La Capacidad Instalada se determina multiplicando los días hábiles del periodo seleccionado por la jornada operativa neta diaria asignada a cada recurso activo.</span>
+          <div class="space-y-1">
+            <p><strong>Memoria de cálculo:</strong> La Capacidad Instalada se determina multiplicando los días hábiles del periodo seleccionado por la jornada operativa neta diaria asignada a cada recurso activo.</p>
+            <p><strong>Horario agendable:</strong> de lunes a viernes se toman las franjas de 8:00 a.m. a 12:00 m. y de 2:00 p.m. a 5:00 p.m., destinadas a las conexiones; es decir, cada recurso tiene 7 horas diarias para agendar.</p>
+            <p><strong>Franjas de trámite:</strong> de 12:00 m. a 12:50 p.m. (lunes a viernes) y de 5:00 p.m. a 5:30 p.m. (lunes a jueves) no hacen parte de la Capacidad Instalada: quedan para que el recurso tramite lo pendiente de las conexiones, escale casos al segundo nivel y realice pruebas. Si en esas franjas se le agenda una actividad (tarea, tarea con revisión, capacitación, seguimiento u otra), esas horas sí se suman a su Capacidad Instalada, porque es tiempo que no pudo usar para adelantar trámites.</p>
+          </div>
         </div>
 
-        <!-- Charts -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <!-- Grouped bar: Promedio de minutos y Recuento de tickets por recurso
-               (ocupa el lugar de "Programado vs. soporte consumido", 2026-10-02) -->
-          <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Promedio en minutos y Recuento de Tickets por Recurso</h3>
-            <div class="chart-box-legend"><canvas id="chart-cap-tickets-stats"></canvas></div>
-            <p class="text-[11px] text-slate-500 mt-2" id="chart-cap-tickets-stats-note"></p>
-          </div>
-          <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3" id="chart-cap-proyecto-title">Consumo por Proyecto (Global)</h3>
-            <div class="chart-box-legend"><canvas id="chart-cap-proyecto"></canvas></div>
-          </div>
+        <!-- Grouped bar: Promedio de minutos y Recuento de tickets por recurso
+             (ancho completo; reemplaza "Consumo por Proyecto", 2026-10-02) -->
+        <div class="card p-5 card-loading-target mb-6">
+          <h3 class="text-sm font-bold text-slate-800 mb-3">Promedio en minutos y Recuento de Tickets por Recurso</h3>
+          <div class="chart-box-legend"><canvas id="chart-cap-tickets-stats"></canvas></div>
+          <p class="text-[11px] text-slate-500 mt-2" id="chart-cap-tickets-stats-note"></p>
         </div>
 
         <!-- Detalle por recurso: cuadrícula de tarjetas (reemplaza la tabla).

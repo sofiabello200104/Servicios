@@ -241,7 +241,6 @@
     'Jorge Enrique Borrero Libreros',
     'Xiomara Lizeth Naranjo Pascuas',
     'Heidy Herman Osorio Chavez',
-    'Anyela Fabriny Villegas Lozano',
     'Laura Sofia Bello Cabrera',
     'Jaider David Ramirez Lozada',
     'Paola Andrea Macias Rojas',
@@ -571,16 +570,25 @@
      in exactly one place — every calculation below derives from JORNADA/
      UMBRALES instead of repeating literals. */
 
+  // Business rule (2026-10-02): connections are scheduled Mon-Fri 08:00-12:00
+  // and 14:00-17:00 = 7 h per resource per working day. The rest of the
+  // working day is NOT part of the base capacity:
+  //   - Mon-Thu: 12:00-12:50 and 17:00-17:30
+  //   - Fri:     12:00-12:50 (the day ends at 17:00)
+  // Those "franjas de trámite" are kept for the resource to finish pending
+  // connection work, escalate to the second level and run tests. When an
+  // activity (ticket block, Tarea, Tarea con Revisión, Seguimiento Cliente,
+  // Capacitación) IS scheduled inside one of them, its overlapping hours are
+  // ADDED to that resource's Capacidad Instalada (see tramiteOverlapHours).
   var JORNADA = {
-    lunesAJueves: { capacidadNetaAgendableHoras: 7.6667 },
-    viernes: { capacidadNetaAgendableHoras: 7.0 }
-    // NOTE: data.json also prints capacidad_semanal_neta_horas = 37.6667 as a
-    // reference weekly total. periodCapacity() does NOT use that field — it
-    // multiplies the two per-day constants above (4 * 7.6667 + 7.0 = 37.6668),
-    // which is 0.0001h higher. That's a rounding-order artifact already
-    // present in data.json itself (37.6667 was computed from the unrounded
-    // 23/3 = 7.6666..., not from the 4-decimal-rounded 7.6667), not a bug
-    // here — see the "periodCapacity derives from the JORNADA constant" test.
+    lunesAJueves: {
+      capacidadNetaAgendableHoras: 7.0,
+      franjasTramite: [{ inicio: 12, fin: 12 + 50 / 60 }, { inicio: 17, fin: 17.5 }]
+    },
+    viernes: {
+      capacidadNetaAgendableHoras: 7.0,
+      franjasTramite: [{ inicio: 12, fin: 12 + 50 / 60 }]
+    }
   };
 
   // badgeClass values copied verbatim from especificacion_ui_dashboard.tabla_detalle.regla_badges
@@ -625,6 +633,21 @@
     return null;
   }
 
+  // tramiteOverlapHours(date, start, end): hours of the [start, end] block
+  // (decimal hours of day) that fall inside that weekday's franjas de
+  // trámite. 0 on weekends/holidays, with no date, or with no times.
+  function tramiteOverlapHours(date, start, end) {
+    if (!date || start == null || end == null || !(end > start)) return 0;
+    var d = asUTCDate(date);
+    if (!d) return 0;
+    var dow = d.getUTCDay();
+    if (dow === 0 || dow === 6 || colombianHolidays(d.getUTCFullYear()).has(isoDate(d))) return 0;
+    var franjas = dow === 5 ? JORNADA.viernes.franjasTramite : JORNADA.lunesAJueves.franjasTramite;
+    var h = 0;
+    franjas.forEach(function (f) { h += Math.max(0, Math.min(end, f.fin) - Math.max(start, f.inicio)); });
+    return round4(h);
+  }
+
   function blockHours(startRaw, endRaw) {
     var start = parseHHMM(startRaw);
     var end = parseHHMM(endRaw);
@@ -642,9 +665,9 @@
   function ticketHours(ticket) {
     var blocks = [];
     var h1 = blockHours(ticket.horaCalInicial, ticket.horaCalFinal);
-    if (h1 != null) blocks.push({ date: ticket.fechaBloque1 || null, hours: h1 });
+    if (h1 != null) blocks.push({ date: ticket.fechaBloque1 || null, hours: h1, start: parseHHMM(ticket.horaCalInicial), end: parseHHMM(ticket.horaCalFinal) });
     var h3 = blockHours(ticket.horaCalInicial3, ticket.horaCalFinal3);
-    if (h3 != null) blocks.push({ date: ticket.fechaBloque3 || null, hours: h3 });
+    if (h3 != null) blocks.push({ date: ticket.fechaBloque3 || null, hours: h3, start: parseHHMM(ticket.horaCalInicial3), end: parseHHMM(ticket.horaCalFinal3) });
     var total = round4(blocks.reduce(function (s, b) { return s + b.hours; }, 0));
     return { total: total, blocks: blocks };
   }
@@ -911,13 +934,23 @@
     var recursosFilter = isAllSelector(filters.recursos) ? null : filters.recursos;
 
     // Flatten every in-period, filter-matching hour block into rows carrying
-    // the owning ticket's recurso/proyecto/fuente, so trend/porRecurso/
-    // porProyecto all read from the same filtered set.
+    // the owning ticket's recurso/proyecto/fuente, so trend/porRecurso
+    // all read from the same filtered set.
     var rows = [];
+    // Hours booked inside the franjas de trámite, per recurso. They extend
+    // that recurso's Capacidad Instalada, so -- like capacity itself -- they
+    // react to Recursos and the period only, never to Cliente/Proyecto.
+    var tramiteByRecurso = {};
+    function addTramite(recurso, date, start, end) {
+      if (!date || date.getTime() < from.getTime() || date.getTime() > to.getTime()) return;
+      var h = tramiteOverlapHours(date, start, end);
+      if (h > 0) tramiteByRecurso[recurso] = (tramiteByRecurso[recurso] || 0) + h;
+    }
     tickets.forEach(function (t) {
       if (!t.recursoSoporte || t.recursoSoporte === 'Sin dato') return; // capacity excludes "Sin dato"
       var recurso = teamName(t.recursoSoporte);
       if (recursosFilter && recursosFilter.indexOf(recurso) === -1) return;
+      ticketHours(t).blocks.forEach(function (b) { addTramite(recurso, b.date, b.start, b.end); });
       if (filters.cliente && filters.cliente !== 'all' && t.cliente !== filters.cliente) return;
       var proyecto = proyectoLabel(t.proyecto);
       if (filters.proyecto && filters.proyecto !== 'all' && proyecto !== proyectoLabel(filters.proyecto)) return;
@@ -938,11 +971,13 @@
       var recurso = teamName(r.recurso);
       if (recursosFilter && recursosFilter.indexOf(recurso) === -1) return;
       if (r.fecha.getTime() < from.getTime() || r.fecha.getTime() > to.getTime()) return;
+      addTramite(recurso, r.fecha, r.horaInicio, r.horaFin);
       rows.push({ recurso: recurso, proyecto: 'Sin proyecto', date: r.fecha, hours: r.horas, fuente: r.fuente });
     });
 
-    var capacidadPorRecurso = periodCapacity(from, to);
-    var capacidadTotal = round4(capacidadPorRecurso * team.length);
+    var capacidadBase = periodCapacity(from, to);
+    function capacidadDe(recurso) { return round4(capacidadBase + (tramiteByRecurso[recurso] || 0)); }
+    var capacidadTotal = round4(team.reduce(function (s, r) { return s + capacidadDe(r); }, 0));
     var reservadasTotal = round4(rows.reduce(function (s, r) { return s + r.hours; }, 0));
     var disponiblesTotal = round4(capacidadTotal - reservadasTotal);
     var pctTotal = capacidadTotal > 0 ? round4(reservadasTotal / capacidadTotal * 100) : 0;
@@ -952,26 +987,18 @@
     rows.forEach(function (r) { reservadasByRecurso[r.recurso] = (reservadasByRecurso[r.recurso] || 0) + r.hours; });
     var porRecurso = team.map(function (recurso) {
       var reservadas = round4(reservadasByRecurso[recurso] || 0);
+      var capacidadPorRecurso = capacidadDe(recurso);
       var disponibles = round4(Math.max(0, capacidadPorRecurso - reservadas));
       var saturadas = round4(Math.max(0, reservadas - capacidadPorRecurso));
       var pct = capacidadPorRecurso > 0 ? round4(reservadas / capacidadPorRecurso * 100) : 0;
       var estado = capacityStatus(pct);
       return {
-        recurso: recurso, capacidad: capacidadPorRecurso, reservadas: reservadas,
+        recurso: recurso, capacidad: capacidadPorRecurso, capacidadBase: capacidadBase,
+        horasEnFranjaTramite: round4(tramiteByRecurso[recurso] || 0), reservadas: reservadas,
         disponibles: disponibles, saturadas: saturadas, pct: pct,
         estado: estado.estado, color: estado.color, badgeClass: estado.badgeClass
       };
     }).sort(function (a, b) { return b.pct - a.pct; });
-
-    var horasByProyecto = {};
-    rows.forEach(function (r) { horasByProyecto[r.proyecto] = (horasByProyecto[r.proyecto] || 0) + r.hours; });
-    var porProyecto = Object.keys(horasByProyecto)
-      .sort(function (a, b) { return horasByProyecto[b] - horasByProyecto[a]; })
-      .map(function (k) {
-        var horas = round4(horasByProyecto[k]);
-        var pct = reservadasTotal > 0 ? round4(horas / reservadasTotal * 100) : 0;
-        return { proyecto: k, horas: horas, pct: pct };
-      });
 
     return {
       kpis: {
@@ -980,7 +1007,6 @@
         badgeClass: estadoTotal.badgeClass, descripcion: estadoTotal.descripcion
       },
       porRecurso: porRecurso,
-      porProyecto: porProyecto,
       periodo: { from: isoDate(from), to: isoDate(to) }
     };
   }
@@ -1481,6 +1507,7 @@
     PRODUCTO_COLORS: PRODUCTO_COLORS,
     PRODUCTO_COLOR_OTROS: PRODUCTO_COLOR_OTROS,
     JORNADA: JORNADA,
+    tramiteOverlapHours: tramiteOverlapHours,
     UMBRALES: UMBRALES,
     parseHHMM: parseHHMM,
     parseTiempoLlamada: parseTiempoLlamada,

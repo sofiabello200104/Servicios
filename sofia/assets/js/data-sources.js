@@ -91,7 +91,9 @@
     var start = M.parseHHMM(raw[sourceDef.horaInicialField]);
     var end = M.parseHHMM(raw[sourceDef.horaFinalField]);
     var horas = (start != null && end != null && end > start) ? round4(end - start) : 0;
-    return { recursoRaw: recursoRaw, fecha: fecha, horas: horas, fuente: sourceDef.fuente };
+    // horaInicio/horaFin (decimal hours) let buildCapacidad tell whether the
+    // activity fell inside a franja de trámite (see tramiteOverlapHours).
+    return { recursoRaw: recursoRaw, fecha: fecha, horas: horas, horaInicio: horas > 0 ? start : null, horaFin: horas > 0 ? end : null, fuente: sourceDef.fuente };
   }
 
   // fetchExtraSource(endpointUrl, sourceDef): builds the entity's full URL

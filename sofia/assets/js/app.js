@@ -94,7 +94,7 @@
   }
 
   // Normalizes and draws one data set (fresh or from the saved snapshot).
-  // extraRaw = data-sources.js rows ({ recursoRaw, fecha, horas, fuente }).
+  // extraRaw = data-sources.js rows ({ recursoRaw, fecha, horas, horaInicio, horaFin, fuente }).
   function renderLoadedData(rows, extraRaw, failedSources) {
     const tickets = M.normalizeTickets(rows);
     // Recurso alignment: Title-Case here (same normalizeRecurso() Tickets
@@ -104,6 +104,8 @@
       recurso: M.normalizeRecurso(r.recursoRaw),
       fecha: r.fecha,
       horas: r.horas,
+      horaInicio: r.horaInicio,
+      horaFin: r.horaFin,
       fuente: r.fuente
     }));
     showContent();
