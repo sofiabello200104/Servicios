@@ -10,10 +10,27 @@
 // OData entities (Tarea, Tarea con Revisión, Seguimiento Cliente, Capacitación)
 // from a different URL than the default ticket template — same host allowlist
 // enforced regardless.
+//
+// Measured on 2026-09-30 against the live feed: the full
+// ID12086_Tickets_medidor entity (5,415 rows, ~5 MB) takes ~165s before the
+// first byte, and the upstream ignores both $top and $select. Two Vercel
+// limits apply: 300s max function duration (Hobby, Fluid compute) and a
+// 4.5 MB max response body. So this function:
+// - waits up to 280s for the upstream (below the 300s function limit);
+// - gzips the body before sending it (~5 MB -> ~0.3 MB);
+// - lets Vercel's CDN cache successful answers (s-maxage) and keep serving
+//   the last good copy while it refreshes in the background
+//   (stale-while-revalidate), so only the very first load waits ~3 minutes.
 
 const https  = require('https');
 const http   = require('http');
+const zlib   = require('zlib');
 const { URL } = require('url');
+
+const UPSTREAM_TIMEOUT_MS = 280000;
+// Fresh for 15 min; after that the CDN serves the stale copy for up to a
+// day while one background invocation refreshes it. Errors are never cached.
+const SUCCESS_CACHE_CONTROL = 'public, s-maxage=900, stale-while-revalidate=86400';
 
 const DEFAULT_ODATA_HOSTS = [
   '172.16.16.171', '172.16.16.175', '172.16.16.199',
@@ -34,6 +51,8 @@ function getConfigFromEnv() {
 
 function sendJson(res, status, obj) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  // Only successful answers are cached by the CDN; errors must never be.
+  res.setHeader('Cache-Control', 'no-store');
   res.status(status).json(obj);
 }
 
@@ -88,7 +107,7 @@ module.exports = function handler(req, res) {
     path: target.pathname + (target.search || ''),
     method: 'GET',
     headers: fwdHeaders,
-    timeout: 45000
+    timeout: UPSTREAM_TIMEOUT_MS
   };
 
   const proxyReq = transport.request(options, (proxyRes) => {
@@ -103,10 +122,21 @@ module.exports = function handler(req, res) {
       proxyRes.resume();
       return;
     }
-    res.setHeader('Content-Type', proxyRes.headers['content-type'] || 'application/json; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-store');
-    res.status(status);
-    proxyRes.pipe(res);
+    // Buffered (not piped) so the body can be gzipped as a whole: the raw
+    // tickets payload (~5 MB) is over Vercel's 4.5 MB response limit.
+    const chunks = [];
+    proxyRes.on('data', (c) => chunks.push(c));
+    proxyRes.on('end', () => {
+      const gz = zlib.gzipSync(Buffer.concat(chunks));
+      res.setHeader('Content-Type', proxyRes.headers['content-type'] || 'application/json; charset=utf-8');
+      res.setHeader('Content-Encoding', 'gzip');
+      res.setHeader('Cache-Control', SUCCESS_CACHE_CONTROL);
+      res.setHeader('X-Data-Fetched-At', new Date().toISOString());
+      res.status(200).end(gz);
+    });
+    proxyRes.on('error', () => {
+      if (!res.headersSent) sendJson(res, 502, { error: 'Error de red al conectar con el servidor OData.' });
+    });
   });
 
   proxyReq.on('timeout', () => {

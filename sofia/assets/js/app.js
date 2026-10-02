@@ -29,6 +29,9 @@
   let _currentExtraRows = [];
   let _extraSourcesFailed = [];
   let _hasData = false;
+  // ISO timestamp of the live data currently on screen (fresh or snapshot);
+  // used by the "No se pudo actualizar · datos del ..." label.
+  let _shownUpdatedAt = null;
   let _currentView = 'resumen';
   let _capacidadStale = true;
   let _activosStale = true;
@@ -90,9 +93,40 @@
     }
   }
 
+  // Normalizes and draws one data set (fresh or from the saved snapshot).
+  // extraRaw = data-sources.js rows ({ recursoRaw, fecha, horas, fuente }).
+  function renderLoadedData(rows, extraRaw, failedSources) {
+    const tickets = M.normalizeTickets(rows);
+    // Recurso alignment: Title-Case here (same normalizeRecurso() Tickets
+    // already goes through); accent/casing fusion across all 5 sources
+    // together happens inside buildCapacidad/buildRecursoTickets (mapper.js).
+    const extraRows = (extraRaw || []).map((r) => ({
+      recurso: M.normalizeRecurso(r.recursoRaw),
+      fecha: r.fecha,
+      horas: r.horas,
+      fuente: r.fuente
+    }));
+    showContent();
+    renderCurrentData(tickets, extraRows, failedSources || []);
+  }
+
+  // Shows the last successful load saved in this browser, if any. Returns
+  // true when something was drawn.
+  async function showSavedSnapshot(label) {
+    const snap = await window.SOFIA_STORE.loadSnapshot();
+    if (!snap || !Array.isArray(snap.rows) || !snap.rows.length) return false;
+    renderLoadedData(snap.rows, snap.extraRows, snap.failedSources);
+    _shownUpdatedAt = snap.updatedAt;
+    updateLastUpdatedText(label + ' ' + window.SOFIA_STORE.formatUpdatedAt(snap.updatedAt));
+    return true;
+  }
+
   async function actualizarDatos() {
     setUpdatingState(true);
-    setSkeletons(true);
+    // Skeletons only when there is nothing on screen yet -- with saved data
+    // showing, the cards stay readable while the slow refresh runs.
+    const hadData = _hasData;
+    if (!hadData) setSkeletons(true);
     try {
       // Config (served locally from data/config.json, never touches the
       // upstream OData host) and Tickets are fetched concurrently. The 4
@@ -111,27 +145,22 @@
         ? await window.SOFIA_DATA_SOURCES.fetchAllExtraSources(cfg.endpointUrl)
         : { rows: [], failedSources: [] };
 
-      const tickets = M.normalizeTickets(rows);
-      // Recurso alignment: Title-Case here (same normalizeRecurso() Tickets
-      // already goes through); accent/casing fusion across all 5 sources
-      // together happens inside buildCapacidad/buildRecursoTickets
-      // (mapper.js), which see tickets + extraRows together.
-      const extraRows = extra.rows.map((r) => ({
-        recurso: M.normalizeRecurso(r.recursoRaw),
-        fecha: r.fecha,
-        horas: r.horas,
-        fuente: r.fuente
-      }));
-
       window.SOFIA_STORE.saveRawTickets(rows);
       const now = new Date().toISOString();
       window.SOFIA_STORE.saveUpdatedAt(now);
-      showContent();
-      renderCurrentData(tickets, extraRows, extra.failedSources);
+      renderLoadedData(rows, extra.rows, extra.failedSources);
+      _shownUpdatedAt = now;
       updateLastUpdatedText('Actualizado: ' + window.SOFIA_STORE.formatUpdatedAt(now));
+      window.SOFIA_STORE.saveSnapshot({ rows, extraRows: extra.rows, failedSources: extra.failedSources, updatedAt: now });
     } catch (err) {
       console.error('[app] Error actualizando datos:', err);
-      showEmptyState('No se pudieron cargar los datos: ' + err.message);
+      // Keep whatever is on screen (or fall back to the saved snapshot)
+      // instead of blanking the dashboard over a slow/failed refresh.
+      if (hadData || await showSavedSnapshot('')) {
+        updateLastUpdatedText('No se pudo actualizar · datos del ' + window.SOFIA_STORE.formatUpdatedAt(_shownUpdatedAt));
+      } else {
+        showEmptyState('No se pudieron cargar los datos: ' + err.message);
+      }
     } finally {
       setUpdatingState(false);
       setSkeletons(false);
@@ -149,6 +178,7 @@
       // Sample-data mode has zero extra-source rows -- no local fixture
       // exists for the 4 extra entities and none should be invented.
       renderCurrentData(tickets, [], []);
+      _shownUpdatedAt = null;
       updateLastUpdatedText('Datos de ejemplo (sin conexión OData)');
     } catch (err) {
       console.error('[app] Error cargando datos de ejemplo:', err);
@@ -260,6 +290,8 @@
 
     const filterSnAccion = document.getElementById('filter-sn-accion');
     if (filterSnAccion) filterSnAccion.addEventListener('change', () => window.SOFIA_RENDER.rerenderSegundoNivelWithCurrentFilters());
+    const filterSnCliente = document.getElementById('filter-sn-cliente');
+    if (filterSnCliente) filterSnCliente.addEventListener('change', () => window.SOFIA_RENDER.rerenderSegundoNivelWithCurrentFilters());
     const btnSnLimpiar = document.getElementById('btn-sn-limpiar');
     if (btnSnLimpiar) btnSnLimpiar.addEventListener('click', () => window.SOFIA_RENDER.clearSegundoNivelFilters());
     window.SOFIA_RENDER.wireSnRecursosMultiSelect();
@@ -286,7 +318,9 @@
     }
 
     if (cfg && cfg.configured) {
-      updateLastUpdatedText('Cargando...');
+      // Saved data first (instant), then the slow live refresh behind it.
+      const shown = await showSavedSnapshot('Actualizando… datos del');
+      if (!shown) updateLastUpdatedText('Cargando...');
       await actualizarDatos();
     } else {
       showEmptyState();
