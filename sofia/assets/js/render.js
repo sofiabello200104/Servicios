@@ -735,7 +735,9 @@
   // the table's own Recurso column becomes "el detalle de los recursos"
   // behind that acción. ANDs with _actSelectedResource above when both are
   // set (independent selections, same table).
-  let _actSelectedAccion = null;
+  // Acciones picked in the Acción multi-select (or toggled by clicking a bar
+  // of "Tickets Abiertos por Acción (General)"); empty = all.
+  let _actSelectedAcciones = [];
 
   // KPI cards with a spec-mandated accent color per card (Tickets Abiertos /
   // Abiertos Calidad) -- kpiCard()'s chip/stripe system
@@ -814,7 +816,9 @@
 
   // Monotone interpolation: smooth, but never dips below 0 between two
   // zero-ticket days (plain tension overshoots).
-  const ACT_DIARIOS_COLORS = { creados: '#0284C7', segundoNivel: '#7C3AED' };
+  // Blue = created, orange = sent to Segundo Nivel: high-contrast pair so the
+  // two behaviours read apart at a glance.
+  const ACT_DIARIOS_COLORS = { creados: '#0284C7', segundoNivel: '#F97316' };
 
   function renderActDiarios(filters) {
     const d = M.buildTicketsDiarios(_actAllTickets, filters);
@@ -825,7 +829,7 @@
     }];
     if (d.hasFechaCalidad) {
       datasets.push({
-        label: 'Tickets a Segundo Nivel (Calidad) por Día', data: d.segundoNivel,
+        label: 'Tickets que pasan a Segundo Nivel de Atención por Día', data: d.segundoNivel,
         borderColor: ACT_DIARIOS_COLORS.segundoNivel, backgroundColor: ACT_DIARIOS_COLORS.segundoNivel, pointRadius: 2, cubicInterpolationMode: 'monotone'
       });
     }
@@ -845,27 +849,66 @@
         'Creados: ' + formatEntero(d.totales.creados)
       ];
       if (d.hasFechaCalidad) parts.push('A Segundo Nivel: ' + formatEntero(d.totales.segundoNivel));
-      let text = parts.join(' · ') + '. Toda la fuente ID12086_Tickets_medidor (cualquier estado y acción).';
-      if (!d.hasFechaCalidad) text += ' La plantilla OData no incluye la columna «Fecha inicial de diagnóstico de calidad»: la serie de Segundo Nivel no se puede calcular.';
+      let text = parts.join(' · ') + '. Creados por Fecha Soporte Inicial; Segundo Nivel por Fecha Inicial Diagnostico Calidad. Toda la fuente ID12086_Tickets_medidor (cualquier estado y acción).';
+      if (!d.hasFechaCalidad) text += ' La plantilla OData no incluye la columna Fecha_Inicial_Diagnostico_Calidad: agréguela para ver la línea de Segundo Nivel.';
       note.textContent = text;
     }
   }
 
-  // Acción <select>: lists the acciones present under the current filters
-  // and mirrors _actSelectedAccion (also set by clicking a bar of "Tickets
-  // Abiertos por Acción (General)").
-  function renderActAccionOptions(result) {
-    const sel = document.getElementById('filter-act-accion');
-    if (!sel) return;
-    sel.innerHTML = '<option value="all">Todas las acciones</option>' +
-      result.porAccion.map((a) => '<option value="' + escapeHtml(a.label) + '">' + escapeHtml(a.label) + ' (' + a.value + ')</option>').join('');
-    sel.value = _actSelectedAccion || 'all';
+  // Acción multi-select: lists the acciones present under the current
+  // filters (names only) and mirrors _actSelectedAcciones.
+  function updateActAccionTriggerLabel() {
+    const trigger = document.getElementById('filter-act-accion-trigger');
+    if (!trigger) return;
+    if (!_actSelectedAcciones.length) trigger.textContent = 'Todas las acciones';
+    else if (_actSelectedAcciones.length === 1) trigger.textContent = _actSelectedAcciones[0];
+    else trigger.textContent = _actSelectedAcciones.length + ' seleccionadas';
   }
 
-  function onActAccionChange(value) {
-    _actSelectedAccion = (!value || value === 'all') ? null : value;
-    _actTablePage = 1;
-    rerenderActivosWithCurrentFilters();
+  function renderActAccionOptions(result) {
+    const list = document.getElementById('filter-act-accion-list');
+    if (!list) return;
+    const selected = new Set(_actSelectedAcciones);
+    list.innerHTML = result.porAccion.map((a) => (
+      '<label class="multi-select-option"><input type="checkbox" class="act-accion-opt" value="' + escapeHtml(a.label) + '"' +
+      (selected.has(a.label) ? ' checked' : '') + ' /> ' + escapeHtml(a.label) + '</label>'
+    )).join('');
+    const all = document.getElementById('filter-act-accion-all');
+    if (all) all.checked = _actSelectedAcciones.length === 0;
+    updateActAccionTriggerLabel();
+  }
+
+  let _actAccionMultiSelectWired = false;
+  function wireActAccionMultiSelect() {
+    if (_actAccionMultiSelectWired) return;
+    _actAccionMultiSelectWired = true;
+    const trigger = document.getElementById('filter-act-accion-trigger');
+    const panel = document.getElementById('filter-act-accion-panel');
+    const allCheckbox = document.getElementById('filter-act-accion-all');
+    const list = document.getElementById('filter-act-accion-list');
+    if (!trigger || !panel || !allCheckbox || !list) return;
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      panel.hidden = !panel.hidden;
+      trigger.setAttribute('aria-expanded', String(!panel.hidden));
+    });
+    document.addEventListener('click', (e) => {
+      if (!panel.hidden && !panel.contains(e.target) && e.target !== trigger) {
+        panel.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+    allCheckbox.addEventListener('change', () => {
+      if (allCheckbox.checked) _actSelectedAcciones = [];
+      _actTablePage = 1;
+      rerenderActivosWithCurrentFilters();
+    });
+    list.addEventListener('change', (e) => {
+      if (!e.target.classList.contains('act-accion-opt')) return;
+      _actSelectedAcciones = Array.from(list.querySelectorAll('.act-accion-opt:checked')).map((el) => el.value);
+      _actTablePage = 1;
+      rerenderActivosWithCurrentFilters();
+    });
   }
 
   function renderActivosCharts(result) {
@@ -958,7 +1001,7 @@
       label: 'Tickets',
       data: result.porAccion.map((a) => a.value),
       backgroundColor: result.porAccion.map((a) => (
-        !_actSelectedAccion || a.label === _actSelectedAccion ? a.color : a.color + '55'
+        !_actSelectedAcciones.length || _actSelectedAcciones.indexOf(a.label) !== -1 ? a.color : a.color + '55'
       ))
     }], {
       horizontal: true, legend: false, labels: result.porAccion.map((a) => a.label),
@@ -967,7 +1010,10 @@
       onClick: (evt, elements, chart) => {
         if (!elements.length) return;
         const label = chart.data.labels[elements[0].index];
-        _actSelectedAccion = (_actSelectedAccion === label) ? null : label;
+        // Toggle that acción in the multi-selection.
+        _actSelectedAcciones = _actSelectedAcciones.indexOf(label) !== -1
+          ? _actSelectedAcciones.filter((x) => x !== label)
+          : _actSelectedAcciones.concat([label]);
         _actTablePage = 1;
         rerenderActivosWithCurrentFilters();
       }
@@ -1147,7 +1193,7 @@
     // recursoOptions over the whole active universe with no filters applied
     // -- exactly what the filter UI needs to decide whether to show itself
     // and what to list.
-    const defaults = M.buildActivos(tickets, {});
+    const defaults = M.buildActivos(tickets, {}, { equipo: M.CAP_CARD_RECURSOS });
     const wrap = document.getElementById('filter-act-requerimientos-wrap');
     if (wrap) wrap.hidden = !defaults.hasRequerimiento;
     if (defaults.hasRequerimiento) {
@@ -1202,7 +1248,7 @@
     // only that combination's rows.
     const rows = result.rows.filter((r) =>
       (!_actSelectedResource || r.recursoAccion === _actSelectedResource) &&
-      (!_actSelectedAccion || r.accion === _actSelectedAccion)
+      (!_actSelectedAcciones.length || _actSelectedAcciones.indexOf(r.accion) !== -1)
     );
     const total = rows.length;
     const totalPages = Math.max(1, Math.ceil(total / ACT_TABLE_PAGE_SIZE));
@@ -1248,14 +1294,14 @@
   // desc). Otherwise it keeps the single-resource detail.
   function renderActAccionResumen(panel, result) {
     const rows = result.rows.filter((r) =>
-      r.accion === _actSelectedAccion && (!_actSelectedResource || r.recursoAccion === _actSelectedResource));
+      _actSelectedAcciones.indexOf(r.accion) !== -1 && (!_actSelectedResource || r.recursoAccion === _actSelectedResource));
     const counts = {};
     rows.forEach((r) => { counts[r.recursoAccion] = (counts[r.recursoAccion] || 0) + 1; });
     const grupos = Object.keys(counts).map((k) => ({ recurso: k, tickets: counts[k] }))
       .sort((a, b) => (b.tickets - a.tickets) || a.recurso.localeCompare(b.recurso));
     panel.innerHTML =
       '<div class="text-2xl font-extrabold text-slate-900 mb-3">' + formatEntero(rows.length) +
-      '<span class="text-xs text-slate-400 font-semibold ml-1">tickets en ' + escapeHtml(_actSelectedAccion) + '</span></div>' +
+      '<span class="text-xs text-slate-400 font-semibold ml-1">tickets en ' + escapeHtml(_actSelectedAcciones.join(', ')) + '</span></div>' +
       (grupos.length
         ? '<table class="w-full text-[12px]"><thead><tr class="text-left text-slate-500">' +
             '<th class="py-1 font-semibold">Recurso asignado</th><th class="py-1 font-semibold text-right">Tickets</th></tr></thead><tbody>' +
@@ -1269,8 +1315,8 @@
     const panel = document.getElementById('act-resumen-panel');
     if (!panel) return;
     const title = document.getElementById('act-resumen-title');
-    if (_actSelectedAccion) {
-      if (title) title.textContent = 'Resumen por recurso — ' + _actSelectedAccion;
+    if (_actSelectedAcciones.length) {
+      if (title) title.textContent = 'Resumen por recurso — ' + (_actSelectedAcciones.length === 1 ? _actSelectedAcciones[0] : _actSelectedAcciones.length + ' acciones');
       renderActAccionResumen(panel, result);
       return;
     }
@@ -1305,7 +1351,9 @@
     if (opts.repopulateFilters !== false) populateActivosFilters(tickets);
 
     const filters = readActivosFilters();
-    const result = M.buildActivos(tickets, filters);
+    // The Recurso dimension uses the team list (M.CAP_CARD_RECURSOS); anyone
+    // else is grouped as "Otro".
+    const result = M.buildActivos(tickets, filters, { equipo: M.CAP_CARD_RECURSOS });
 
     // A previously selected resource that no longer appears under the
     // current filters (e.g. narrowing Recurso excludes every ticket for it)
@@ -1319,8 +1367,9 @@
     }
     // Same guard for the Acción selection (porAccion is whole-universe, but
     // stays defensive against a future filter that could narrow it).
-    if (_actSelectedAccion && !result.porAccion.some((a) => a.label === _actSelectedAccion)) {
-      _actSelectedAccion = null;
+    const accionesPresentes = _actSelectedAcciones.filter((x) => result.porAccion.some((a) => a.label === x));
+    if (accionesPresentes.length !== _actSelectedAcciones.length) {
+      _actSelectedAcciones = accionesPresentes;
       _actTablePage = 1;
       renderActivos(tickets, { repopulateFilters: false });
       return;
@@ -1351,7 +1400,7 @@
     if (recAllCheckbox) recAllCheckbox.checked = true;
     updateActRecursoTriggerLabel();
     _actSelectedResource = null;
-    _actSelectedAccion = null;
+    _actSelectedAcciones = [];
     _actTablePage = 1;
     rerenderActivosWithCurrentFilters();
   }
@@ -1641,7 +1690,7 @@
     clearCapacidadFilters: clearCapacidadFilters,
     wireCapRecursosMultiSelect: wireCapRecursosMultiSelect,
     onCapClienteChange: onCapClienteChange,
-    onActAccionChange: onActAccionChange,
+    wireActAccionMultiSelect: wireActAccionMultiSelect,
     wireDrilldownModal: wireDrilldownModal,
     renderActivos: renderActivos,
     rerenderActivosWithCurrentFilters: rerenderActivosWithCurrentFilters,

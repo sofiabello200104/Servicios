@@ -1234,7 +1234,7 @@
   // buildTicketsDiarios(tickets, filters): per-day series for Primer Nivel's
   // "Tickets creados vs. Segundo Nivel (Calidad)" line chart, over the WHOLE
   // ID12086_Tickets_medidor source (any Estado / Acción):
-  //   - creados[i]      = tickets whose Fecha (creación) is that day
+  //   - creados[i]      = tickets whose Fecha Soporte Inicial (creación) is that day
   //   - segundoNivel[i] = tickets whose Fecha inicial de diagnóstico de
   //                       calidad is that day (null series when the column
   //                       is absent from the template -> hasFechaCalidad)
@@ -1254,7 +1254,7 @@
       if (!minDay || d.getTime() < minDay.getTime()) minDay = d;
     }
     tickets.forEach(function (t) {
-      var c = t.fecha ? asUTCDate(t.fecha) : null;
+      var c = t.fechaSoporteInicial ? asUTCDate(t.fechaSoporteInicial) : null;
       if (c) { var kc = isoDate(c); creadosByDay[kc] = (creadosByDay[kc] || 0) + 1; note(c); }
       var q = t.fechaDiagnosticoCalidad ? asUTCDate(t.fechaDiagnosticoCalidad) : null;
       if (q) { var kq = isoDate(q); calidadByDay[kq] = (calidadByDay[kq] || 0) + 1; note(q); }
@@ -1355,17 +1355,26 @@
     return 'Sin recurso';
   }
 
-  // buildActivos(tickets, filters): filters = { fechaCreacionFrom,
+  // buildActivos(tickets, filters, opts): filters = { fechaCreacionFrom,
   // fechaCreacionTo, requerimientos, recursos }. "Fecha de creación" is the
-  // ticket's `Fecha` column. tickets must already be normalized. Every
-  // resource dimension (charts, Recurso filter, table) uses recursoAsignado.
+  // ticket's Fecha Soporte Inicial. tickets must already be normalized.
+  // Every resource dimension (charts, Recurso filter, table) uses
+  // recursoAsignado. opts.equipo (optional name list): the view's team --
+  // anyone outside it is shown as RECURSO_OTRO ("Otro"), team names use the
+  // list's own spelling, and recursoOptions = the whole team (even people
+  // with no ticket) + "Otro"/"Sin recurso" when present.
   //   - filters.recursos: free multi-select over Recurso_Accion, isAllSelector
   //     semantics (empty/['all'] = no filter) -- same as Capacidad's Recursos
   //     and Segundo Nivel's own filters.recursos. Narrows `filtered` before
   //     the kpis/recursosServicios/porCliente/porAccion/porProducto/rows
   //     aggregation, so it affects the whole computed output at once.
-  function buildActivos(tickets, filters) {
+  var RECURSO_OTRO = 'Otro';
+  function buildActivos(tickets, filters, opts) {
     filters = filters || {};
+    opts = opts || {};
+    var equipo = Array.isArray(opts.equipo) && opts.equipo.length ? opts.equipo : null;
+    var equipoByKey = {};
+    if (equipo) equipo.forEach(function (n) { equipoByKey[recursoGroupKey(toTitleCase(n))] = n; });
     tickets = Array.isArray(tickets) ? tickets : [];
 
     var hasCliente = hasClienteColumn(tickets);
@@ -1375,7 +1384,12 @@
     // below -- matches "filters apply on top of the universe" from the spec.
     var universe = tickets.filter(function (t) { return t.estado === 1 && t.accionNorm !== 'CREAR'; });
     var displayName = resolveRecursoDisplayNames(universe.map(recursoAsignado));
-    function recursoDe(t) { var n = recursoAsignado(t); return n === 'Sin recurso' ? n : displayName(n); }
+    function recursoDe(t) {
+      var n = recursoAsignado(t);
+      if (n === 'Sin recurso') return n;
+      if (equipo) return equipoByKey[recursoGroupKey(n)] || RECURSO_OTRO;
+      return displayName(n);
+    }
     var recursoDeTicket = new Map();
     universe.forEach(function (t) { recursoDeTicket.set(t, recursoDe(t)); });
 
@@ -1386,7 +1400,15 @@
     var requerimientoOptions = hasRequerimiento
       ? Array.from(new Set(universe.map(function (t) { return t.requerimientoOpcion; }).filter(Boolean))).sort()
       : [];
-    var recursoOptions = Array.from(new Set(universe.map(function (t) { return recursoDeTicket.get(t); }))).sort();
+    var recursoOptions;
+    if (equipo) {
+      var present = new Set(universe.map(function (t) { return recursoDeTicket.get(t); }));
+      recursoOptions = equipo.slice().sort(function (a, b) { return a.localeCompare(b); });
+      if (present.has(RECURSO_OTRO)) recursoOptions.push(RECURSO_OTRO);
+      if (present.has('Sin recurso')) recursoOptions.push('Sin recurso');
+    } else {
+      recursoOptions = Array.from(new Set(universe.map(function (t) { return recursoDeTicket.get(t); }))).sort();
+    }
 
     var creacionFrom = filters.fechaCreacionFrom ? asUTCDate(filters.fechaCreacionFrom) : null;
     var creacionTo = filters.fechaCreacionTo ? asUTCDate(filters.fechaCreacionTo) : null;
@@ -1405,7 +1427,7 @@
     }
 
     var filtered = universe.filter(function (t) {
-      if (outsideRange(t.fecha, creacionFrom, creacionTo)) return false;
+      if (outsideRange(t.fechaSoporteInicial, creacionFrom, creacionTo)) return false;
       if (requerimientosFilter && requerimientosFilter.indexOf(t.requerimientoOpcion) === -1) return false;
       if (recursosFilter && recursosFilter.indexOf(recursoDeTicket.get(t)) === -1) return false;
       return true;
@@ -1638,6 +1660,7 @@
     buildCapacidad: buildCapacidad,
     buildTicketStatsPorRecurso: buildTicketStatsPorRecurso,
     buildTicketsDiarios: buildTicketsDiarios,
+    RECURSO_OTRO: RECURSO_OTRO,
     buildRecursoTickets: buildRecursoTickets,
     buildActivos: buildActivos,
     buildSegundoNivel: buildSegundoNivel

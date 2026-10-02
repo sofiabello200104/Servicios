@@ -275,8 +275,7 @@
       const el = document.getElementById(id);
       if (el) el.addEventListener('change', () => window.SOFIA_RENDER.rerenderActivosWithCurrentFilters());
     });
-    const actAccionSel = document.getElementById('filter-act-accion');
-    if (actAccionSel) actAccionSel.addEventListener('change', () => window.SOFIA_RENDER.onActAccionChange(actAccionSel.value));
+    window.SOFIA_RENDER.wireActAccionMultiSelect();
     const btnActLimpiar = document.getElementById('btn-act-limpiar');
     if (btnActLimpiar) btnActLimpiar.addEventListener('click', () => window.SOFIA_RENDER.clearActivosFilters());
     window.SOFIA_RENDER.wireActRequerimientosMultiSelect();

@@ -294,11 +294,20 @@
             <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-creacion-hasta">Fecha de creación hasta</label>
             <input type="date" id="filter-act-creacion-hasta" class="filter-select input-base" />
           </div>
-          <!-- Acción: sincronizado con el clic en "Tickets Abiertos por Acción (General)";
-               al elegir una acción, el panel inferior resume esos tickets por recurso. -->
+          <!-- Acción (selección múltiple): sincronizada con el clic en "Tickets Abiertos
+               por Acción (General)"; con acciones elegidas, el panel inferior resume esos
+               tickets por recurso. -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-accion">Acción</label>
-            <select id="filter-act-accion" class="filter-select"><option value="all">Todas las acciones</option></select>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" id="filter-act-accion-label">Acción</label>
+            <div class="multi-select" id="filter-act-accion">
+              <button type="button" class="filter-select multi-select-trigger" id="filter-act-accion-trigger" aria-haspopup="listbox" aria-expanded="false">Todas las acciones</button>
+              <div class="multi-select-panel" id="filter-act-accion-panel" role="listbox" hidden>
+                <label class="multi-select-option multi-select-all">
+                  <input type="checkbox" id="filter-act-accion-all" checked /> Todas
+                </label>
+                <div class="multi-select-list" id="filter-act-accion-list"></div>
+              </div>
+            </div>
           </div>
           <!-- Oculto por completo cuando la plantilla OData no trae la columna
                Requerimiento_Opcion (ver hasRequerimiento en buildActivos) -- misma
@@ -324,10 +333,11 @@
         <!-- KPIs -->
         <div id="kpi-row-activos" class="card-loading-target grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6"></div>
 
-        <!-- Línea: tickets creados vs. tickets a Segundo Nivel (Calidad) por día,
+        <!-- Línea: tickets creados (Fecha Soporte Inicial) vs. tickets que pasan a
+             Segundo Nivel de Atención (Fecha Inicial Diagnostico Calidad) por día,
              sobre toda la fuente ID12086_Tickets_medidor -->
         <div class="card p-5 card-loading-target mb-6">
-          <h3 class="text-sm font-bold text-slate-800 mb-3">Tickets Creados vs. Tickets a Segundo Nivel (Calidad) por Día</h3>
+          <h3 class="text-sm font-bold text-slate-800 mb-3">Tickets Creados vs. Tickets a Segundo Nivel de Atención por Día</h3>
           <div class="chart-box-legend"><canvas id="chart-act-diarios"></canvas></div>
           <p class="text-[11px] text-slate-500 mt-2" id="chart-act-diarios-note"></p>
         </div>

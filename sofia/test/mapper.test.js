@@ -1256,10 +1256,10 @@ test('buildActivos reports hasRequerimiento:true and sorted requerimientoOptions
 
 /* -------- buildActivos: filters -------- */
 
-test('buildActivos filters by Fecha de creación (the Fecha column), not by Fecha Soporte Inicial', () => {
+test('buildActivos filters by Fecha de creación = Fecha Soporte Inicial, not by the Fecha column', () => {
   const rows = [
-    rawActivoTicket({ ID: 1, Fecha: '2026-08-01T00:00:00', Fecha_Soporte_Inicial: '2026-08-20T00:00:00' }),
-    rawActivoTicket({ ID: 2, Fecha: '2026-08-15T00:00:00', Fecha_Soporte_Inicial: '2026-08-02T00:00:00' })
+    rawActivoTicket({ ID: 1, Fecha_Soporte_Inicial: '2026-08-01T00:00:00', Fecha: '2026-08-20T00:00:00' }),
+    rawActivoTicket({ ID: 2, Fecha_Soporte_Inicial: '2026-08-15T00:00:00', Fecha: '2026-08-02T00:00:00' })
   ];
   const tickets = mapper.normalizeTickets(rows);
   const result = mapper.buildActivos(tickets, { fechaCreacionFrom: '2026-08-01', fechaCreacionTo: '2026-08-05' });
@@ -1269,8 +1269,8 @@ test('buildActivos filters by Fecha de creación (the Fecha column), not by Fech
 
 test('buildActivos creation-date bounds are inclusive by calendar day even when the ticket date carries a time component', () => {
   const rows = [
-    rawActivoTicket({ ID: 1, Fecha: '2026-08-05T14:30:00' }),
-    rawActivoTicket({ ID: 2, Fecha: '2026-08-06T00:00:00' })
+    rawActivoTicket({ ID: 1, Fecha_Soporte_Inicial: '2026-08-05T14:30:00' }),
+    rawActivoTicket({ ID: 2, Fecha_Soporte_Inicial: '2026-08-06T00:00:00' })
   ];
   const result = mapper.buildActivos(mapper.normalizeTickets(rows), { fechaCreacionFrom: '2026-08-05', fechaCreacionTo: '2026-08-05' });
   assert.equal(result.kpis.total, 1);
@@ -1345,8 +1345,8 @@ test('buildActivos exposes ID/Recurso/Cliente/Producto/Accion/Asunto rows for th
 
 test('buildActivos rows respect the same date/requerimientos/recursos filters as kpis', () => {
   const rows = [
-    rawActivoTicket({ ID: 1, Accion: 'REALIZAR', Recurso_Accion: 'Ana', Fecha: '2026-08-01T00:00:00' }),
-    rawActivoTicket({ ID: 2, Accion: 'REALIZAR', Recurso_Accion: 'Luis', Fecha: '2026-08-15T00:00:00' })
+    rawActivoTicket({ ID: 1, Accion: 'REALIZAR', Recurso_Accion: 'Ana', Fecha_Soporte_Inicial: '2026-08-01T00:00:00' }),
+    rawActivoTicket({ ID: 2, Accion: 'REALIZAR', Recurso_Accion: 'Luis', Fecha_Soporte_Inicial: '2026-08-15T00:00:00' })
   ];
   const tickets = mapper.normalizeTickets(rows);
   const result = mapper.buildActivos(tickets, { fechaCreacionFrom: '2026-08-01', fechaCreacionTo: '2026-08-05' });
@@ -1596,11 +1596,11 @@ test('buildSegundoNivel on data/sample-tickets.json matches the confirmed busine
 
 /* ==================== Primer Nivel: Tickets creados vs. Segundo Nivel por día ==================== */
 
-test('buildTicketsDiarios counts tickets by creation day and by Fecha inicial de diagnóstico de calidad, whole source', () => {
+test('buildTicketsDiarios counts created tickets by Fecha Soporte Inicial and second-level ones by Fecha Inicial Diagnostico Calidad, whole source', () => {
   const rows = [
-    rawActivoTicket({ ID: 1, Fecha: '2026-08-01T09:00:00', Estado: 2, Fecha_Inicial_Diagnostico_Calidad: '2026-08-02T00:00:00' }),
-    rawActivoTicket({ ID: 2, Fecha: '2026-08-01T00:00:00', Accion: 'CREAR', Fecha_Inicial_Diagnostico_Calidad: null }),
-    rawActivoTicket({ ID: 3, Fecha: '2026-08-03T00:00:00', Fecha_Inicial_Diagnostico_Calidad: '2026-08-03T00:00:00' })
+    rawActivoTicket({ ID: 1, Fecha_Soporte_Inicial: '2026-08-01T09:00:00', Fecha: '2026-07-01T00:00:00', Estado: 2, Fecha_Inicial_Diagnostico_Calidad: '2026-08-02T00:00:00' }),
+    rawActivoTicket({ ID: 2, Fecha_Soporte_Inicial: '2026-08-01T00:00:00', Accion: 'CREAR', Fecha_Inicial_Diagnostico_Calidad: null }),
+    rawActivoTicket({ ID: 3, Fecha_Soporte_Inicial: '2026-08-03T00:00:00', Fecha_Inicial_Diagnostico_Calidad: '2026-08-03T00:00:00' })
   ];
   const r = mapper.buildTicketsDiarios(mapper.normalizeTickets(rows), { fechaCreacionFrom: '2026-08-01', fechaCreacionTo: '2026-08-03' });
   assert.equal(r.hasFechaCalidad, true);
@@ -1611,7 +1611,7 @@ test('buildTicketsDiarios counts tickets by creation day and by Fecha inicial de
 });
 
 test('buildTicketsDiarios without a range shows the last 30 days up to the latest date; no quality column -> null series', () => {
-  const rows = [rawActivoTicket({ ID: 1, Fecha: '2026-08-31T00:00:00' }), rawActivoTicket({ ID: 2, Fecha: '2026-06-01T00:00:00' })];
+  const rows = [rawActivoTicket({ ID: 1, Fecha_Soporte_Inicial: '2026-08-31T00:00:00' }), rawActivoTicket({ ID: 2, Fecha_Soporte_Inicial: '2026-06-01T00:00:00' })];
   const r = mapper.buildTicketsDiarios(mapper.normalizeTickets(rows), {});
   assert.equal(r.hasFechaCalidad, false);
   assert.equal(r.segundoNivel, null);
@@ -1637,4 +1637,18 @@ test('buildTicketStatsPorRecurso.todos counts every ticket in the period, beyond
   assert.equal(s.todos.promedioMinutos, 20);
   const picked = mapper.buildTicketStatsPorRecurso(tickets, Object.assign({}, base, { recursosSeleccion: ['Ana Perez'] }));
   assert.equal(picked.todos.tickets, 2); // explicit pick narrows it
+});
+
+test('buildActivos with opts.equipo: team names from the list, everyone else as "Otro"; options = whole team + Otro', () => {
+  const rows = [
+    rawActivoTicket({ ID: 1, Accion: 'REALIZAR', Recurso_Accion: 'LINA MARIA PERALTA MONTEALEGRE' }),
+    rawActivoTicket({ ID: 2, Accion: 'REALIZAR', Recurso_Accion: 'Persona Externa' }),
+    rawActivoTicket({ ID: 3, Accion: 'CIERRE', Recurso_Accion: 'Otra Externa' })
+  ];
+  const equipo = ['Lina María Peralta Montealegre', 'Laura Sofia Bello Cabrera'];
+  const r = mapper.buildActivos(mapper.normalizeTickets(rows), {}, { equipo });
+  assert.deepEqual(r.recursoOptions, ['Laura Sofia Bello Cabrera', 'Lina María Peralta Montealegre', 'Otro']);
+  assert.deepEqual(r.recursosServicios, [{ label: 'Otro', value: 2 }, { label: 'Lina María Peralta Montealegre', value: 1 }]);
+  const onlyOtro = mapper.buildActivos(mapper.normalizeTickets(rows), { recursos: ['Otro'] }, { equipo });
+  assert.equal(onlyOtro.kpis.total, 2);
 });
