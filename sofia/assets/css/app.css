@@ -44,10 +44,6 @@ html,body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:va
 .chart-scroll{overflow-y:auto;overflow-x:hidden;}
 .chart-scroll-inner{position:relative;width:100%;}
 .chart-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:16px;font-size:12px;color:var(--ink-mute);}
-.gauge-wrap{position:relative;}
-.gauge-center{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;pointer-events:none;}
-.gauge-center .val{font-size:1.5rem;font-weight:800;color:var(--ink);}
-.gauge-center .lbl{font-size:11px;color:var(--ink-mute);font-weight:600;}
 
 /* ===== Filter row ===== */
 .filter-select{padding:8px 10px;border:1px solid #CBD5E1;border-radius:8px;font-size:13px;background:#fff;color:var(--ink);min-width:180px;}

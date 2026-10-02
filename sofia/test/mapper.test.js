@@ -118,12 +118,12 @@ test('filterRecursosByList keeps every row when the list is empty or missing', (
   assert.equal(mapper.filterRecursosByList(rows, undefined).length, 2);
 });
 
-test('CAP_CARD_RECURSOS: all 12 listed people match a resource in data/sample-tickets.json', () => {
+test('CAP_CARD_RECURSOS: all 13 listed people match a resource in data/sample-tickets.json', () => {
   const tickets = mapper.normalizeTickets(require(path.join('..', 'data', 'sample-tickets.json')));
   const porRecurso = mapper.buildCapacidad(tickets, {}, []).porRecurso;
   const shown = mapper.filterRecursosByList(porRecurso, mapper.CAP_CARD_RECURSOS);
-  assert.equal(mapper.CAP_CARD_RECURSOS.length, 12);
-  assert.equal(shown.length, 12);
+  assert.equal(mapper.CAP_CARD_RECURSOS.length, 13);
+  assert.equal(shown.length, 13);
 });
 
 /* ==================== Priority grouping ==================== */
@@ -634,44 +634,66 @@ test('parseTiempoLlamada parses plain-minute strings, "N Hora(s)" and "N min", a
   assert.equal(mapper.parseTiempoLlamada('garbage'), null);
 });
 
-/* ==================== Spec v2: buildRecursoGauges ==================== */
-/* Spec v3 changed the signature to (tickets, filters) where filters embeds
-   `recurso` alongside `from`/`to` — the gauges now have their OWN local
-   Desde/Hasta filter (independent of the main filter row's from/to), so
-   `recurso` can't stay a separate positional argument once the caller needs
-   to pass a filters object it fully controls either way. */
+/* ==================== buildTicketStatsPorRecurso ==================== */
+/* "Promedio en minutos y Recuento de Tickets por Recurso" chart + the
+   "Total Tickets Atendidos" KPI. Replaced the two gauges (buildRecursoGauges). */
 
-test('buildRecursoGauges computes programado % and tiempoReal % for one resource in a period', () => {
-  const rows = [
-    rawTicketWithHours({ ID: 1, Recurso_Soporte: 'Ana Perez', Hora_Cal_Inicial: '08:00', Hora_Cal_Final: '12:00', Tiempo_de_llamada: '180' }) // 4h, 180min=3h real
-  ];
-  const tickets = mapper.normalizeTickets(rows);
-  const g = mapper.buildRecursoGauges(tickets, { recurso: 'Ana Perez', from: '2026-03-02', to: '2026-03-02' });
-  assert.equal(g.programado.horas, 4);
-  assert.equal(g.programado.capacidad, 7.6667);
-  assert.equal(g.programado.pct, +(4 / 7.6667 * 100).toFixed(4));
-  assert.equal(g.tiempoReal.horasReales, 3);
-  assert.equal(g.tiempoReal.horasProgramadas, 4);
-  assert.equal(g.tiempoReal.pct, +(3 / 4 * 100).toFixed(4));
-  assert.equal(g.tiempoReal.hasData, true);
+test('buildTicketStatsPorRecurso counts tickets by Fecha and averages Minutos ignoring blanks', () => {
+  const tickets = mapper.normalizeTickets([
+    rawTicketWithHours({ ID: 1, Recurso_Soporte: 'Ana Perez', Minutos: '30' }),
+    rawTicketWithHours({ ID: 2, Recurso_Soporte: 'ANA PEREZ', Minutos: '60' }),
+    rawTicketWithHours({ ID: 3, Recurso_Soporte: 'Ana Perez', Minutos: null }), // counted, not averaged
+    rawTicketWithHours({ ID: 4, Recurso_Soporte: 'Ana Perez', Fecha: '2026-04-15T00:00:00', Minutos: '999' }), // out of range
+    rawTicketWithHours({ ID: 5, Recurso_Soporte: 'Luis Gomez', Minutos: '1 Hora' })
+  ]);
+  const s = mapper.buildTicketStatsPorRecurso(tickets, { from: '2026-03-01', to: '2026-03-31' });
+  assert.equal(s.hasMinutos, true);
+  const ana = s.porRecurso.find((r) => r.recurso === 'Ana Perez');
+  assert.equal(ana.tickets, 3);
+  assert.equal(ana.conMinutos, 2);
+  assert.equal(ana.promedioMinutos, 45);
+  const luis = s.porRecurso.find((r) => r.recurso === 'Luis Gomez');
+  assert.equal(luis.promedioMinutos, 60);
+  assert.equal(s.totales.tickets, 4);
+  assert.equal(s.totales.promedioMinutos, 50); // (30 + 60 + 60) / 3
+  assert.equal(s.porRecurso[0].recurso, 'Ana Perez'); // no list -> most tickets first
 });
 
-test('buildRecursoGauges reports hasData:false when the resource has no Tiempo_de_llamada in the period', () => {
-  const rows = [rawTicketWithHours({ ID: 1, Recurso_Soporte: 'Ana Perez', Hora_Cal_Inicial: '08:00', Hora_Cal_Final: '09:00', Tiempo_de_llamada: null })];
-  const tickets = mapper.normalizeTickets(rows);
-  const g = mapper.buildRecursoGauges(tickets, { recurso: 'Ana Perez', from: '2026-03-02', to: '2026-03-02' });
-  assert.equal(g.tiempoReal.hasData, false);
-  assert.equal(g.tiempoReal.pct, null);
+test('buildTicketStatsPorRecurso keeps every listed resource, in list order, matching accents', () => {
+  const tickets = mapper.normalizeTickets([
+    rawTicketWithHours({ ID: 1, Recurso_Soporte: 'David Ricardo Salazar Rodriguez', Minutos: '20' }),
+    rawTicketWithHours({ ID: 2, Recurso_Soporte: 'Otra Persona', Minutos: '10' })
+  ]);
+  const s = mapper.buildTicketStatsPorRecurso(tickets, {
+    from: '2026-03-01', to: '2026-03-31',
+    recursos: ['Laura Sofia Bello Cabrera', 'David Ricardo Salazar Rodríguez']
+  });
+  assert.deepEqual(s.porRecurso.map((r) => r.recurso), ['Laura Sofia Bello Cabrera', 'David Ricardo Salazar Rodríguez']);
+  assert.equal(s.porRecurso[0].tickets, 0);
+  assert.equal(s.porRecurso[0].promedioMinutos, null);
+  assert.equal(s.porRecurso[1].tickets, 1);
+  assert.equal(s.totales.tickets, 1); // "Otra Persona" is outside the list
 });
 
-test('buildRecursoGauges uses periodCapacity, which is holiday-aware', () => {
-  // 2026-07-20 is Independencia (Emiliani-unmoved: falls on a Monday itself)
-  // -- capacity for that Mon-Sun week is 3 Mon-Thu (Tue/Wed/Thu) + 1 Fri.
-  const rows = [rawTicketWithHours({ ID: 1, Recurso_Soporte: 'Ana Perez', Fecha_Soporte_Inicial: '2026-07-21T00:00:00', Hora_Cal_Inicial: '08:00', Hora_Cal_Final: '09:00' })];
-  const tickets = mapper.normalizeTickets(rows);
-  const g = mapper.buildRecursoGauges(tickets, { recurso: 'Ana Perez', from: '2026-07-20', to: '2026-07-26' });
-  assert.equal(g.programado.capacidad, mapper.periodCapacity('2026-07-20', '2026-07-26'));
-  assert.equal(g.programado.capacidad, +(3 * 7.6667 + 7.0).toFixed(4));
+test('buildTicketStatsPorRecurso applies Cliente/Proyecto filters and skips tickets without ID', () => {
+  const tickets = mapper.normalizeTickets([
+    rawTicketWithHours({ ID: 1, Cliente: 'ALCANOS', Proyecto: 'P1', Minutos: '10' }),
+    rawTicketWithHours({ ID: 2, Cliente: 'EPN', Proyecto: 'P1', Minutos: '10' }),
+    rawTicketWithHours({ ID: 3, Cliente: 'ALCANOS', Proyecto: 'P2', Minutos: '10' }),
+    rawTicketWithHours({ ID: null, Cliente: 'ALCANOS', Proyecto: 'P1', Minutos: '10' })
+  ]);
+  const s = mapper.buildTicketStatsPorRecurso(tickets, { from: '2026-03-01', to: '2026-03-31', cliente: 'ALCANOS', proyecto: 'P1' });
+  assert.equal(s.totales.tickets, 1);
+});
+
+test('buildTicketStatsPorRecurso reports hasMinutos:false when the template lacks the Minutos column', () => {
+  const tickets = mapper.normalizeTickets([
+    rawTicketWithHours({ ID: 1, Tiempo_Soporte_Minutos: '40' }) // never stands in for Minutos
+  ]);
+  const s = mapper.buildTicketStatsPorRecurso(tickets, { from: '2026-03-01', to: '2026-03-31' });
+  assert.equal(s.hasMinutos, false);
+  assert.equal(s.totales.tickets, 1);
+  assert.equal(s.totales.promedioMinutos, null);
 });
 
 /* ==================== Spec v3: Colombian holidays (Ley Emiliani) ==================== */

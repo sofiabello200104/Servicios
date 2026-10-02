@@ -229,7 +229,7 @@
   }
 
   // Capacidad y Rendimiento's team (user list, 2026-10-02). Defines the whole
-  // view: the Recursos filter and gauge selector only offer these people,
+  // view: the Recursos filter only offers these people,
   // "Todos los recursos" means these people (so KPIs, charts and cards all
   // count the same set), and the resource cards show only them.
   var CAP_CARD_RECURSOS = [
@@ -261,7 +261,7 @@
   }
 
   // Same accent/case-insensitive match as filterRecursosByList, for a bare
-  // name (filter options, gauge selector). An empty/missing list matches all.
+  // name (filter options). An empty/missing list matches all.
   function isRecursoInList(name, allowList) {
     if (!Array.isArray(allowList) || !allowList.length) return true;
     var key = recursoGroupKey(toTitleCase(name));
@@ -357,6 +357,14 @@
     // buildProgramadoVsSoporte's hasSoporte), present -> minutes (0 if empty).
     var soporteMinCol = Object.keys(rows[0]).find(function (k) { return normKey(k) === 'tiemposoporteminutos'; }) || null;
 
+    // `Minutos` (minutes spent on the ticket) backs the "Promedio de Minutos"
+    // series and KPI. Same EXACT-name match, so Tiempo_Soporte_Minutos never
+    // stands in for it. Absent column -> undefined on every ticket (lets
+    // buildTicketStatsPorRecurso tell "no column" from "column, no value");
+    // present but empty/unparseable -> null, which the average skips (like
+    // Power BI's Promedio, which ignores blanks).
+    var minutosCol = Object.keys(rows[0]).find(function (k) { return normKey(k) === 'minutos'; }) || null;
+
     var tickets = rows.map(function (row) {
       var fechaRaw = row[col('fecha', 'Fecha')];
       var fecha = parseFecha(fechaRaw);
@@ -405,6 +413,7 @@
         tiempoEmpleadoEntrega: fillOrDefault(row[col('tiempoEmpleadoEntrega', 'Tiempo_empleado_entrega')]),
         tiempoDeLlamada: fillOrDefault(row[col('tiempoDeLlamada', 'Tiempo_de_llamada')]),
         tiempoSoporteMin: soporteMinCol ? (parseTiempoLlamada(row[soporteMinCol]) || 0) : null,
+        minutos: minutosCol ? parseTiempoLlamada(row[minutosCol]) : undefined,
         // Raw HH:MM strings (or null) — kept un-normalized (not "Sin dato")
         // because ticketHours() needs to distinguish "absent" from a real value.
         horaCalInicial: row[col('horaCalInicial', 'Hora_Cal_Inicial')] != null ? row[col('horaCalInicial', 'Hora_Cal_Inicial')] : null,
@@ -611,7 +620,7 @@
   // string ('60', '120', '180'), but ~1.5% of rows spell it out as free text
   // ('1 Hora', '2 Horas', 'N min'). Anything else (including '', null, and
   // the normalizeTickets 'Sin dato' fallback) is unparseable -> null, which
-  // buildRecursoGauges treats as "no real-time data" for that ticket.
+  // callers treat as "no value" for that ticket.
   function parseTiempoLlamada(raw) {
     if (raw == null) return null;
     var s = String(raw).trim();
@@ -1051,52 +1060,96 @@
     };
   }
 
-  // buildRecursoGauges(tickets, filters): pure per-resource figures for the
-  // two "tacómetro" gauges. filters = { recurso, from, to } — a self-
-  // contained LOCAL filter set (spec v3's own Recurso + rango_fechas_local
-  // under fila_tacometros), deliberately independent of the main filter
-  // row's recursos/cliente/proyecto/from/to.
+  // buildTicketStatsPorRecurso(tickets, filters): ticket count ("Recuento de
+  // ID") and average minutes ("Promedio de Minutos") per resource, for the
+  // "Promedio en minutos y Recuento de Tickets por Recurso" chart and the
+  // "Total Tickets Atendidos" KPI. filters = the SAME shape passed to
+  // buildCapacidad ({ from, to, recursos, cliente, proyecto }).
   //
-  // "In period" for a ticket = it has at least one hour block dated inside
-  // [from, to] (Tiempo_de_llamada is a ticket-level field, not per-block, so
-  // there's no finer-grained date to check it against).
-  function buildRecursoGauges(tickets, filters) {
+  // A ticket counts when its `Fecha` falls inside [from, to] and it passes
+  // the Cliente/Proyecto filters -- the same per-ticket rule as
+  // buildProgramadoVsSoporte. Tickets only: the 4 extra sources have no ID,
+  // Fecha or Minutos. Resources are matched accent/case-insensitively; with
+  // an explicit recursos list every listed person gets a row (0 tickets
+  // included) in the list's own order, so the chart keeps a stable axis.
+  //
+  // Recuento counts tickets with a non-empty ID (Power BI's Recuento de ID
+  // skips blanks). Promedio = sum(Minutos) / tickets WITH a Minutos value,
+  // so blanks don't drag the average down; null when there are none.
+  function buildTicketStatsPorRecurso(tickets, filters) {
     filters = filters || {};
     tickets = Array.isArray(tickets) ? tickets : [];
-    var recurso = filters.recurso;
     var period = resolvePeriod(tickets, filters);
     var from = period.from, to = period.to;
-    var capacidad = periodCapacity(from, to);
+    var hasMinutos = tickets.some(function (t) { return t.minutos !== undefined; });
 
-    var reservadas = 0;
-    var tiempoRealMinutos = 0;
-    var hasTiempoData = false;
+    function keyOf(name) { return recursoGroupKey(toTitleCase(name)); }
+    function proyectoLabel(raw) { return raw && raw !== 'Sin dato' ? raw : 'Sin proyecto'; }
+
+    var recursosFilter = isAllSelector(filters.recursos) ? null : filters.recursos;
+    var nameByKey = {};
+    var order = [];
+    var acc = {};
+    function ensure(k, name) {
+      if (!nameByKey[k]) {
+        nameByKey[k] = name;
+        order.push(k);
+        acc[k] = { tickets: 0, minutosSum: 0, conMinutos: 0 };
+      }
+    }
+    if (recursosFilter) recursosFilter.forEach(function (n) { ensure(keyOf(n), n); });
 
     tickets.forEach(function (t) {
-      if (t.recursoSoporte !== recurso) return;
-      var inPeriodHours = 0;
-      ticketHours(t).blocks.forEach(function (b) {
-        if (!b.date) return;
-        if (b.date.getTime() < from.getTime() || b.date.getTime() > to.getTime()) return;
-        inPeriodHours += b.hours;
-      });
-      if (inPeriodHours <= 0) return;
-      reservadas += inPeriodHours;
-      var mins = parseTiempoLlamada(t.tiempoDeLlamada);
-      if (mins != null) { tiempoRealMinutos += mins; hasTiempoData = true; }
+      if (!t.recursoSoporte || t.recursoSoporte === 'Sin dato') return;
+      if (t.id == null || String(t.id).trim() === '') return;
+      var d = t.fecha ? asUTCDate(t.fecha) : null;
+      if (!d || d.getTime() < from.getTime() || d.getTime() > to.getTime()) return;
+      if (filters.cliente && filters.cliente !== 'all' && t.cliente !== filters.cliente) return;
+      if (filters.proyecto && filters.proyecto !== 'all' && proyectoLabel(t.proyecto) !== proyectoLabel(filters.proyecto)) return;
+      var k = keyOf(t.recursoSoporte);
+      if (recursosFilter) {
+        if (!nameByKey[k]) return;
+      } else {
+        ensure(k, t.recursoSoporte);
+      }
+      var a = acc[k];
+      a.tickets += 1;
+      if (typeof t.minutos === 'number' && isFinite(t.minutos)) {
+        a.minutosSum += t.minutos;
+        a.conMinutos += 1;
+      }
     });
 
-    reservadas = round4(reservadas);
-    var tiempoRealHoras = round4(tiempoRealMinutos / 60);
-    var pctProgramado = capacidad > 0 ? round4(reservadas / capacidad * 100) : 0;
-    // No Tiempo_de_llamada logged for this resource in this period -> null
-    // (not 0%), so the UI can render an empty gray gauge instead of a
-    // misleading "0% real time" reading.
-    var pctTiempoReal = (hasTiempoData && reservadas > 0) ? round4(tiempoRealHoras / reservadas * 100) : null;
+    function avg(sum, n) { return n > 0 ? Math.round(sum / n * 10) / 10 : null; }
+
+    var porRecurso = order.map(function (k) {
+      var a = acc[k];
+      return {
+        recurso: nameByKey[k],
+        tickets: a.tickets,
+        conMinutos: a.conMinutos,
+        minutosSum: round4(a.minutosSum),
+        promedioMinutos: avg(a.minutosSum, a.conMinutos)
+      };
+    });
+    // No explicit list -> most tickets first; an explicit list keeps its order.
+    if (!recursosFilter) {
+      porRecurso.sort(function (a, b) { return (b.tickets - a.tickets) || a.recurso.localeCompare(b.recurso); });
+    }
+
+    var totalTickets = porRecurso.reduce(function (s, r) { return s + r.tickets; }, 0);
+    var totalMinutos = porRecurso.reduce(function (s, r) { return s + r.minutosSum; }, 0);
+    var totalConMinutos = porRecurso.reduce(function (s, r) { return s + r.conMinutos; }, 0);
 
     return {
-      programado: { pct: pctProgramado, horas: reservadas, capacidad: capacidad },
-      tiempoReal: { pct: pctTiempoReal, horasReales: tiempoRealHoras, horasProgramadas: reservadas, hasData: hasTiempoData }
+      porRecurso: porRecurso,
+      hasMinutos: hasMinutos,
+      totales: {
+        tickets: totalTickets,
+        conMinutos: totalConMinutos,
+        promedioMinutos: avg(totalMinutos, totalConMinutos)
+      },
+      periodo: { from: isoDate(from), to: isoDate(to) }
     };
   }
 
@@ -1514,7 +1567,7 @@
     periodCapacity: periodCapacity,
     capacityStatus: capacityStatus,
     buildCapacidad: buildCapacidad,
-    buildRecursoGauges: buildRecursoGauges,
+    buildTicketStatsPorRecurso: buildTicketStatsPorRecurso,
     buildRecursoTickets: buildRecursoTickets,
     buildActivos: buildActivos,
     buildSegundoNivel: buildSegundoNivel

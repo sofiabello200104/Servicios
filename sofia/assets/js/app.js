@@ -266,8 +266,6 @@
     const clienteSel = document.getElementById('filter-cap-cliente');
     if (clienteSel) clienteSel.addEventListener('change', () => window.SOFIA_RENDER.onCapClienteChange());
 
-
-
     window.SOFIA_RENDER.wireCapRecursosMultiSelect();
     window.SOFIA_RENDER.wireDrilldownModal();
 

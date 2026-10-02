@@ -3,7 +3,7 @@
 
   // Chart rendering helpers, adapted from the reference project's
   // legacy-render.js (makeChart registry, kpiCard, renderSpark, semaphore,
-  // doughnut/barChart/gauge). Trimmed down to what the single Resumen view
+  // doughnut/barChart). Trimmed down to what the single Resumen view
   // needs — no multi-area nav, no analisis buttons, no vendor-specific
   // formatting helpers.
 
@@ -255,80 +255,6 @@
     });
   }
 
-  function hexToRgba(hex, alpha) {
-    const h = hex.replace('#', '');
-    const r = parseInt(h.substring(0, 2), 16);
-    const g = parseInt(h.substring(2, 4), 16);
-    const b = parseInt(h.substring(4, 6), 16);
-    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
-  }
-
-  // segmentedGauge(id, value, segments, opts): a two-ring "tacómetro" —
-  // segments = [{limite, color}, ...] in ascending `limite` order (max =
-  // last segment's limite).
-  //   - Outer ring (one dataset): the full 0..max range split into each
-  //     segment's own span, painted in that segment's color at ~25% opacity
-  //     — the static band map.
-  //   - Inner ring (a second dataset, same circumference/rotation so both
-  //     start/end at the same angle): the 0..value arc, painted solid in
-  //     the color of whichever band the (clamped) value falls into.
-  // opts.hasData: false renders an empty gray inner arc (e.g. "no Tiempo_de_
-  // llamada logged for this resource/period" — a real 0% would be misleading).
-  function segmentedGauge(id, value, segments, opts) {
-    opts = opts || {};
-    const max = segments[segments.length - 1].limite;
-    const v = Number(value);
-    const hasData = opts.hasData !== false && Number.isFinite(v);
-    const clamped = hasData ? Math.max(0, Math.min(v, max)) : 0;
-
-    let prevLimit = 0;
-    const bgData = [];
-    const bgColors = [];
-    segments.forEach((seg) => {
-      bgData.push(seg.limite - prevLimit);
-      bgColors.push(hexToRgba(seg.color, 0.25));
-      prevLimit = seg.limite;
-    });
-
-    const band = hasData ? (segments.find((seg) => v <= seg.limite) || segments[segments.length - 1]) : null;
-    const valueColor = band ? band.color : '#CBD5E1';
-
-    return makeChart(id, {
-      type: 'doughnut',
-      data: {
-        datasets: [
-          {
-            data: bgData, backgroundColor: bgColors, borderWidth: 0,
-            circumference: 270, rotation: 225, radius: '92%', cutout: '80%'
-          },
-          {
-            data: [clamped, max - clamped], backgroundColor: [valueColor, 'transparent'], borderWidth: 0,
-            circumference: 270, rotation: 225, radius: '76%', cutout: '52%'
-          }
-        ]
-      },
-      options: {
-        responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { enabled: false } }
-      }
-    });
-  }
-
-  function gauge(id, value, color) {
-    const v = Number(value) || 0;
-    return makeChart(id, {
-      type: 'doughnut',
-      data: { datasets: [{ data: [v, 100 - v], backgroundColor: [color, '#E2E8F0'], borderWidth: 0, circumference: 270, rotation: 225 }] },
-      options: {
-        responsive: true, maintainAspectRatio: false, cutout: '78%',
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: () => v.toFixed(1) + '%' } }
-        }
-      }
-    });
-  }
-
   // Toggles a centered "no data" message over a chart container so an empty
   // dataset never renders as a bare 0..1 axis. The canvas stays in place
   // (and its Chart instance registered) for the next non-empty render.
@@ -352,6 +278,6 @@
   window.SOFIA_CHARTS = {
     COLORS, PRODUCTO_COLORS, PRODUCTO_COLOR_OTROS,
     semaphore, makeChart, kpiCard, flushSparks, renderSpark,
-    barChart, doughnut, gauge, lineChart, segmentedGauge, chartEmptyState
+    barChart, doughnut, lineChart, chartEmptyState
   };
 })();

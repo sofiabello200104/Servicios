@@ -173,6 +173,11 @@
 
   function formatHoras(n) { return (Number(n) || 0).toFixed(1); }
   function formatPct(n) { return (Number(n) || 0).toFixed(1); }
+  // es-CO grouping: 1.234 tickets, 37,5 min.
+  const _fmtEntero = new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 });
+  const _fmtMinutos = new Intl.NumberFormat('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  function formatEntero(n) { return _fmtEntero.format(Number(n) || 0); }
+  function formatMinutos(n) { return _fmtMinutos.format(Number(n) || 0); }
 
   function isoToDMY(iso) {
     if (!iso) return '';
@@ -322,15 +327,12 @@
 
   /* -------- KPIs -------- */
 
-  function renderCapKpis(result) {
+  // ticketStats = M.buildTicketStatsPorRecurso(...) for the same filters --
+  // computed once in renderCapacidad and shared with the grouped bar chart,
+  // so the KPI total always equals the sum of the chart's ticket bars.
+  function renderCapKpis(result, ticketStats) {
     const k = result.kpis;
-
-    // Build tickets stats for the 5th KPI: total tickets + avg minutes
-    // using the same filtered dataset already passed into result.
-    const statsRows = result.porRecurso || [];
-    const totalTickets = statsRows.reduce((s, r) => s + (r.recuentoTickets || 0), 0);
-    const totalMinutes = statsRows.reduce((s, r) => s + (r.totalMinutes || 0), 0);
-    const avgMinutos = totalTickets > 0 ? (totalMinutes / totalTickets) : 0;
+    const tot = ticketStats.totales;
 
     const cards = [
       C.kpiCard({ title: 'Capacidad Instalada', value: formatHoras(k.capacidad), unit: ' h', noChip: true, hasData: false }),
@@ -352,15 +354,22 @@
       '<div class="spark-wrap mt-2"></div>' +
       '</div>'
     );
-    // 5th KPI: Total Tickets Atendidos + promedio de minutos
+    // 5th KPI: Total Tickets Atendidos (Recuento de ID) + promedio general
+    // de minutos por ticket. "—" when no ticket in range has a Minutos value
+    // (or the template lacks the column) instead of a misleading "0 min".
+    const promedioTxt = tot.promedioMinutos != null ? formatMinutos(tot.promedioMinutos) + ' min' : '—';
+    const promedioHint = !ticketStats.hasMinutos
+      ? 'La plantilla no incluye la columna Minutos'
+      : 'Promedio de tiempo por ticket';
     cards.push(
       '<div class="card p-4">' +
       '<div class="text-[12px] font-semibold text-slate-700 leading-tight">Total Tickets Atendidos</div>' +
       '<div class="mt-3 flex items-baseline gap-2">' +
-      '<div class="text-2xl font-extrabold text-slate-900 kpi-num">' + totalTickets + '</div>' +
+      '<div class="text-2xl font-extrabold text-slate-900 kpi-num">' + formatEntero(tot.tickets) + '</div>' +
       '<span class="text-sm text-slate-400 font-medium">tickets</span>' +
       '</div>' +
-      '<div class="text-[11px] text-slate-500 mt-1">Promedio: <strong>' + avgMinutos.toFixed(1) + ' min</strong> por ticket</div>' +
+      '<div class="text-[11px] text-slate-500 mt-1" title="' + escapeHtml(promedioHint) + '">' +
+      'Promedio: <strong class="text-slate-700">' + escapeHtml(promedioTxt) + '</strong> por ticket</div>' +
       '</div>'
     );
     document.getElementById('kpi-row-capacidad').innerHTML = cards.join('');
@@ -442,91 +451,96 @@
 
   /* -------- Grouped bar: Avg minutes + ticket count per resource -------- */
 
-  // Computes per-resource ticket stats (count + avg minutes from
-  // Tiempo_de_llamada) from the already-filtered ticket set, then renders
-  // a grouped bar chart with data labels.
-  function renderCapTicketsBar(tickets, filters) {
-    const team = filters.recursos || _capTeam;
-    // Build per-resource stats: count tickets whose recurso is in the team
-    // and that fall within filters.from/to.
-    const fromD = filters.from ? new Date(filters.from + 'T00:00:00Z') : null;
-    const toD = filters.to ? new Date(filters.to + 'T23:59:59Z') : null;
+  const CAP_TICKETS_COLORS = { promedio: '#0099FF', recuento: '#002299' };
 
-    const statsMap = {};
-    team.forEach((r) => { statsMap[r] = { count: 0, totalMin: 0 }; });
+  // "Primer nombre + primer apellido" for the X axis (Colombian convention:
+  // with 4+ words the first surname is the 3rd word), full name in the
+  // tooltip. Same rule as initialsFromName in mapper.js.
+  function shortRecursoName(full) {
+    const w = String(full || '').trim().split(/\s+/);
+    if (w.length <= 2) return w.join(' ');
+    return w[0] + ' ' + (w.length >= 4 ? w[2] : w[1]);
+  }
 
-    tickets.forEach((t) => {
-      if (!t.recurso || !M.isRecursoInList(t.recurso, team)) return;
-      if (t.fecha) {
-        if (fromD && t.fecha < fromD) return;
-        if (toD && t.fecha > toD) return;
-      }
-      // Find canonical name in team
-      const canon = team.find((n) => M.isRecursoInList(t.recurso, [n]));
-      if (!canon) return;
-      statsMap[canon].count += 1;
-      const mins = typeof t.tiempoDeLlamada === 'number' ? t.tiempoDeLlamada
-        : (parseFloat(t.tiempoDeLlamada) || 0);
-      statsMap[canon].totalMin += mins;
-    });
+  // ticketStats = M.buildTicketStatsPorRecurso(tickets, filters): one row per
+  // resource in the filter's team (0-ticket people included), in list order.
+  function renderCapTicketsBar(ticketStats) {
+    const rows = ticketStats.porRecurso;
+    const labels = rows.map((r) => shortRecursoName(r.recurso));
+    const fullNames = rows.map((r) => r.recurso);
+    // null (no Minutos value) -> no bar and no label, rather than a fake 0.
+    const avgData = rows.map((r) => r.promedioMinutos);
+    const countData = rows.map((r) => r.tickets);
 
-    // Build ordered arrays aligned to the team, only include resources with data
-    const entries = team
-      .map((r) => ({ recurso: r, ...statsMap[r] }))
-      .filter((e) => e.count > 0 || team.length <= 5); // show all when team is small
-    const labels = entries.map((e) =>
-      e.recurso.split(/\s+/).filter((_, i, all) => i === 0 || i === (all.length >= 4 ? 2 : 1)).join(' ') || e.recurso
-    );
-    const fullNames = entries.map((e) => e.recurso);
-    const avgData = entries.map((e) => e.count > 0 ? +(e.totalMin / e.count).toFixed(1) : 0);
-    const countData = entries.map((e) => e.count);
-
-    const hasData = entries.some((e) => e.count > 0);
+    const hasData = rows.some((r) => r.tickets > 0);
     C.chartEmptyState('chart-cap-tickets-stats', !hasData, 'Sin tickets para los filtros seleccionados');
 
-    const totalTickets = entries.reduce((s, e) => s + e.count, 0);
-    const totalMin = entries.reduce((s, e) => s + e.totalMin, 0);
-    const globalAvg = totalTickets > 0 ? (totalMin / totalTickets).toFixed(1) : '—';
     const noteEl = document.getElementById('chart-cap-tickets-stats-note');
     if (noteEl) {
-      noteEl.textContent = 'Total tickets: ' + totalTickets +
-        ' · Promedio global: ' + globalAvg + ' min/ticket' +
-        (filters.from && filters.to ? ' · Período: ' + isoToDMY(filters.from) + ' – ' + isoToDMY(filters.to) : '');
+      const tot = ticketStats.totales;
+      const parts = [
+        'Total tickets: ' + formatEntero(tot.tickets),
+        'Promedio general: ' + (tot.promedioMinutos != null ? formatMinutos(tot.promedioMinutos) + ' min/ticket' : '—'),
+        'Período (por Fecha del ticket): ' + isoToDMY(ticketStats.periodo.from) + ' – ' + isoToDMY(ticketStats.periodo.to)
+      ];
+      let text = parts.join(' · ');
+      if (!ticketStats.hasMinutos) {
+        text += '. La plantilla OData no incluye la columna Minutos: la serie "Promedio de Minutos" no se puede calcular.';
+      }
+      noteEl.textContent = text;
     }
+
+    const labelFor = (color, fmt) => ({
+      display: (ctx) => {
+        const v = ctx.dataset.data[ctx.dataIndex];
+        return v != null && v > 0;
+      },
+      anchor: 'end',
+      align: 'end',
+      offset: 2,
+      color: color,
+      font: { weight: '700', size: 10 },
+      formatter: fmt
+    });
 
     C.barChart('chart-cap-tickets-stats', [
       {
         label: 'Promedio de Minutos',
         data: avgData,
-        backgroundColor: '#0099FF',
+        backgroundColor: CAP_TICKETS_COLORS.promedio,
         borderRadius: 4,
-        datalabels: { anchor: 'end', align: 'top', color: '#0099FF', font: { weight: 'bold', size: 10 } }
+        maxBarThickness: 28,
+        datalabels: labelFor(CAP_TICKETS_COLORS.promedio, (v) => formatMinutos(v))
       },
       {
         label: 'Recuento de Tickets',
         data: countData,
-        backgroundColor: '#002299',
+        backgroundColor: CAP_TICKETS_COLORS.recuento,
         borderRadius: 4,
-        datalabels: { anchor: 'end', align: 'top', color: '#002299', font: { weight: 'bold', size: 10 } }
+        maxBarThickness: 28,
+        datalabels: labelFor(CAP_TICKETS_COLORS.recuento, (v) => formatEntero(v))
       }
     ], {
       labels: labels,
       dataLabels: true,
       xOpts: { ticks: { autoSkip: false, font: { size: 10 }, maxRotation: 40, minRotation: 0 } },
-      yOpts: { title: { display: true, text: 'Valor', color: '#94A3B8', font: { size: 11 } } },
+      yOpts: { beginAtZero: true, grace: '12%', title: { display: true, text: 'Minutos / Tickets', color: '#94A3B8', font: { size: 11 } } },
       tooltipOpts: {
         callbacks: {
           title: (items) => fullNames[items[0].dataIndex],
           label: (item) => {
-            if (item.datasetIndex === 0) return 'Promedio: ' + item.parsed.y + ' min/ticket';
-            return 'Tickets: ' + item.parsed.y;
+            const r = rows[item.dataIndex];
+            if (item.datasetIndex === 0) {
+              return r.promedioMinutos != null
+                ? 'Promedio: ' + formatMinutos(r.promedioMinutos) + ' min/ticket (' + formatEntero(r.conMinutos) + ' con dato)'
+                : 'Promedio: sin dato de minutos';
+            }
+            return 'Tickets: ' + formatEntero(r.tickets);
           }
         }
       }
     });
   }
-
-
 
   function sortCapRows(rows, key, dir) {
     return rows.slice().sort((a, b) => {
@@ -597,7 +611,7 @@
 
   // Opens the single, reused drill-down modal (index.html) for one resource,
   // built from the SAME main period/cliente/proyecto filters the table
-  // itself was rendered with (never the gauge row's local filters), plus
+  // itself was rendered with, plus
   // the same extraRows already threaded into the table's own buildCapacidad
   // call, so this modal's total matches the clicked row's Reservadas exactly.
   function openDrilldownModal(recurso, openerBtn) {
@@ -729,12 +743,12 @@
 
     const filters = readCapFilters();
     const result = M.buildCapacidad(tickets, filters, _capExtraRows);
+    const ticketStats = M.buildTicketStatsPorRecurso(tickets, filters);
 
-    renderCapKpis(result);
+    renderCapKpis(result, ticketStats);
     renderCapCharts(result, filters);
-    renderCapTicketsBar(tickets, filters);
+    renderCapTicketsBar(ticketStats);
     renderCapTable(result, filters);
-
   }
 
   function rerenderCapWithCurrentFilters() {
@@ -758,7 +772,6 @@
     document.getElementById('filter-cap-desde').value = defaults.periodo.from;
     document.getElementById('filter-cap-hasta').value = defaults.periodo.to;
     rerenderCapWithCurrentFilters();
-
   }
 
   /* ==================== Tickets Activos ====================
@@ -1598,7 +1611,6 @@
     clearCapacidadFilters: clearCapacidadFilters,
     wireCapRecursosMultiSelect: wireCapRecursosMultiSelect,
     onCapClienteChange: onCapClienteChange,
-    onCapGaugeFiltersChange: onCapGaugeFiltersChange,
     wireDrilldownModal: wireDrilldownModal,
     renderActivos: renderActivos,
     rerenderActivosWithCurrentFilters: rerenderActivosWithCurrentFilters,
