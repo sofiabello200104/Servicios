@@ -305,6 +305,12 @@ semáforo no se duplica en `render.js`. Son **cuatro** estados, no tres:
 `Alta Disponibilidad` (azul), `Óptimo` (verde), `Límite` (ámbar) y
 `Saturado` (rojo, >100%).
 
+**Solo se muestran 12 personas**, las de `CAP_CARD_RECURSOS` (mapper.js),
+filtradas con `filterRecursosByList` sin distinguir tildes ni mayúsculas.
+Para agregar o quitar a alguien basta con editar esa lista. El filtro afecta
+solo a las tarjetas: los KPIs y gráficos de Capacidad siguen contando a todo
+el equipo.
+
 El ordenamiento que antes daban las cabeceras clicables de la tabla ahora
 vive en el `<select>` **"Ordenar por"** (`#cap-cards-sort`), que escribe el
 mismo `_capSortState`.

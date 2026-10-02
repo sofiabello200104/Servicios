@@ -102,6 +102,30 @@ test('initialsFromName degrades for one-word, empty and accented input instead o
   assert.equal(mapper.initialsFromName('Ángela Lucía Ñuñez Soto'), 'ÁÑ'); // conserva la tilde
 });
 
+test('filterRecursosByList keeps only listed people, ignoring accents and case', () => {
+  const rows = [
+    { recurso: 'David Ricardo Salazar Rodriguez' }, // sin tilde en el feed
+    { recurso: 'LAURA SOFIA BELLO CABRERA' },
+    { recurso: 'Anyela Fabriny Villegas Lozano' }
+  ];
+  const out = mapper.filterRecursosByList(rows, ['David Ricardo Salazar Rodríguez', 'Laura Sofia Bello Cabrera']);
+  assert.deepEqual(out.map((r) => r.recurso), ['David Ricardo Salazar Rodriguez', 'LAURA SOFIA BELLO CABRERA']);
+});
+
+test('filterRecursosByList keeps every row when the list is empty or missing', () => {
+  const rows = [{ recurso: 'A B' }, { recurso: 'C D' }];
+  assert.equal(mapper.filterRecursosByList(rows, []).length, 2);
+  assert.equal(mapper.filterRecursosByList(rows, undefined).length, 2);
+});
+
+test('CAP_CARD_RECURSOS: all 12 listed people match a resource in data/sample-tickets.json', () => {
+  const tickets = mapper.normalizeTickets(require(path.join('..', 'data', 'sample-tickets.json')));
+  const porRecurso = mapper.buildCapacidad(tickets, {}, []).porRecurso;
+  const shown = mapper.filterRecursosByList(porRecurso, mapper.CAP_CARD_RECURSOS);
+  assert.equal(mapper.CAP_CARD_RECURSOS.length, 12);
+  assert.equal(shown.length, 12);
+});
+
 /* ==================== Priority grouping ==================== */
 
 test('groupPrioridad groups by leading number+word', () => {

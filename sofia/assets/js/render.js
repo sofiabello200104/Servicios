@@ -668,7 +668,10 @@
   function renderCapCards() {
     const grid = document.getElementById('cap-cards-grid');
     if (!grid) return;
-    const sorted = sortCapRows(_capLastPorRecurso, _capSortState.key, _capSortState.dir);
+    // Only the people in M.CAP_CARD_RECURSOS get a card; the rest of the
+    // view (KPIs, charts) keeps the whole team.
+    const shown = M.filterRecursosByList(_capLastPorRecurso, M.CAP_CARD_RECURSOS);
+    const sorted = sortCapRows(shown, _capSortState.key, _capSortState.dir);
     if (!sorted.length) {
       grid.innerHTML = '<p class="cap-cards-empty">Sin recursos para los filtros seleccionados.</p>';
       return;

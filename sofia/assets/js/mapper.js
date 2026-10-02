@@ -228,6 +228,37 @@
     return stripDiacritics(titleCasedName).toLowerCase();
   }
 
+  // People shown in Capacidad's "Detalle por recurso" card grid (user list,
+  // 2026-10-02). Only the cards are narrowed -- KPIs and charts in the same
+  // view still cover the whole team.
+  var CAP_CARD_RECURSOS = [
+    'Marlon Hernando Serna Loaiza',
+    'Lina María Peralta Montealegre',
+    'Edwin Yitzjak Campos Pisso',
+    'Jaiber Mauricio Torrente Quintero',
+    'Jhonatan Steven Baicue Bolivar',
+    'Heidy Herman Osorio Chavez',
+    'Jorge Enrique Borrero Libreros',
+    'Laura Sofia Bello Cabrera',
+    'Xiomara Lizeth Naranjo Pascuas',
+    'Jaider David Ramirez Lozada',
+    'Paola Andrea Macias Rojas',
+    'David Ricardo Salazar Rodríguez'
+  ];
+
+  // Keeps only the porRecurso rows whose recurso is in allowList. Matched on
+  // recursoGroupKey (accent/case-insensitive), the same key that fuses name
+  // variants across sources, so "Rodríguez"/"Rodriguez" or an all-caps
+  // spelling in the feed still match the list. An empty/missing allowList
+  // keeps every row.
+  function filterRecursosByList(rows, allowList) {
+    rows = Array.isArray(rows) ? rows : [];
+    if (!Array.isArray(allowList) || !allowList.length) return rows;
+    var allowed = {};
+    allowList.forEach(function (n) { allowed[recursoGroupKey(toTitleCase(n))] = true; });
+    return rows.filter(function (r) { return allowed[recursoGroupKey(toTitleCase(r.recurso))] === true; });
+  }
+
   // Per-row Title Case only merges pure case differences ("PAOLA X" vs
   // "Paola X"). It does NOT merge accent variants of the same person
   // ("María" vs "Maria"), which the feed genuinely contains for the same
@@ -1377,6 +1408,8 @@
     monthKey: monthKey,
     toTitleCase: toTitleCase,
     initialsFromName: initialsFromName,
+    CAP_CARD_RECURSOS: CAP_CARD_RECURSOS,
+    filterRecursosByList: filterRecursosByList,
     normalizeRecurso: normalizeRecurso,
     groupPrioridad: groupPrioridad,
     normalizeTickets: normalizeTickets,
