@@ -12,31 +12,8 @@
   const RAW_KEY = 'sofia.rawtickets.v1';
   const UPD_KEY = 'sofia.updatedat.v1';
 
-  // Last successful load (raw tickets + Capacidad's extra-source rows), kept
-  // in IndexedDB rather than localStorage: the live tickets payload is ~5 MB,
-  // over localStorage's per-origin quota. Lets the app show the previous data
-  // instantly on boot and keep showing it when the slow OData feed (~3 min,
-  // sometimes timing out) fails, instead of a blank error screen.
-  const SNAP_DB = 'sofia-snapshot';
-  const SNAP_STORE = 'snapshots';
-  const SNAP_KEY = 'latest';
-
   let _configCache = null;
   let _rawMemoryFallback = null;
-
-  // Resolves with an open DB, or null when IndexedDB is unavailable
-  // (private mode, blocked storage) -- callers then just skip the snapshot.
-  function openSnapDb() {
-    return new Promise((resolve) => {
-      let req;
-      try { req = indexedDB.open(SNAP_DB, 1); }
-      catch (e) { resolve(null); return; }
-      req.onupgradeneeded = () => req.result.createObjectStore(SNAP_STORE);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => resolve(null);
-      req.onblocked = () => resolve(null);
-    });
-  }
 
   function safeGetItem(key) {
     try { return localStorage.getItem(key); }
@@ -73,37 +50,6 @@
     clearRawTickets() {
       _rawMemoryFallback = null;
       try { localStorage.removeItem(RAW_KEY); } catch (e) { /* ignore */ }
-    },
-
-    // ── Última carga exitosa completa (IndexedDB) ──
-    // snapshot = { rows, extraRows, failedSources, updatedAt }. Both methods
-    // never reject: a storage failure only means no snapshot.
-    async saveSnapshot(snapshot) {
-      const db = await openSnapDb();
-      if (!db) return false;
-      return new Promise((resolve) => {
-        try {
-          const tx = db.transaction(SNAP_STORE, 'readwrite');
-          tx.objectStore(SNAP_STORE).put(snapshot, SNAP_KEY);
-          tx.oncomplete = () => { db.close(); resolve(true); };
-          tx.onerror = tx.onabort = () => {
-            console.warn('[store] No se pudo guardar la copia local de los datos.');
-            db.close();
-            resolve(false);
-          };
-        } catch (e) { db.close(); resolve(false); }
-      });
-    },
-    async loadSnapshot() {
-      const db = await openSnapDb();
-      if (!db) return null;
-      return new Promise((resolve) => {
-        try {
-          const req = db.transaction(SNAP_STORE, 'readonly').objectStore(SNAP_STORE).get(SNAP_KEY);
-          req.onsuccess = () => { db.close(); resolve(req.result || null); };
-          req.onerror = () => { db.close(); resolve(null); };
-        } catch (e) { db.close(); resolve(null); }
-      });
     },
 
     // ── Fecha de última actualización exitosa ──

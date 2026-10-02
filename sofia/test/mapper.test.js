@@ -1420,66 +1420,24 @@ test('buildSegundoNivel filters by accion (single-select), collapsing the ACTUAL
 
 /* -------- buildSegundoNivel: rows + selectedResource + insight -------- */
 
-test('buildSegundoNivel keeps rows empty and reports the insight on "Vista general" when nothing is selected', () => {
+test('buildSegundoNivel exposes ID/Recurso/Cliente/Producto/Accion/Asunto rows for the whole filtered universe when no resource is selected', () => {
   const rows = [rawActivoTicket({ ID: 1, Accion: 'REVISION CALIDAD', Recurso_Accion: 'Ana', Cliente: 'Acme', Producto: 'NOMINA WEB' })];
   const tickets = mapper.normalizeTickets(rows);
   const result = mapper.buildSegundoNivel(tickets, {});
-  assert.equal(result.hasSelection, false);
-  assert.deepEqual(result.rows, []);
-  assert.deepEqual(result.insight, {
-    isGeneral: true,
-    dimension: null,
-    value: null,
-    total: 1,
-    topProducto: { label: 'NOMINA WEB', value: 1 },
-    topDiagnostico: null,
-    topAccion: { label: 'REVISION CALIDAD', value: 1 }
-  });
-});
-
-test('buildSegundoNivel exposes ID/Recurso/Cliente/Producto/Accion/Asunto rows once a chart value is selected', () => {
-  const rows = [rawActivoTicket({ ID: 1, Accion: 'REVISION CALIDAD', Recurso_Accion: 'Ana', Cliente: 'Acme', Producto: 'NOMINA WEB' })];
-  const tickets = mapper.normalizeTickets(rows);
-  const result = mapper.buildSegundoNivel(tickets, { selectedChartDimension: 'recurso', selectedChartValue: 'Ana' });
+  assert.equal(result.insight, null);
   assert.deepEqual(result.rows, [{
     id: 1, recurso: 'Ana', cliente: 'ACME', producto: 'NOMINA WEB', accion: 'REVISION CALIDAD', asunto: null
   }]);
 });
 
-test('buildSegundoNivel selecting a cliente or producto value narrows rows to that value', () => {
-  const rows = [
-    rawActivoTicket({ ID: 1, Accion: 'REVISION CALIDAD', Recurso_Accion: 'Ana', Cliente: 'Acme', Producto: 'NOMINA WEB' }),
-    rawActivoTicket({ ID: 2, Accion: 'REVISION DEV', Recurso_Accion: 'Luis', Cliente: 'Beta', Producto: 'CONTABILIDAD WEB' })
-  ];
-  const tickets = mapper.normalizeTickets(rows);
-  const byCliente = mapper.buildSegundoNivel(tickets, { selectedChartDimension: 'cliente', selectedChartValue: 'ACME' });
-  assert.deepEqual(byCliente.rows.map((r) => r.id), [1]);
-  const byProducto = mapper.buildSegundoNivel(tickets, { selectedChartDimension: 'producto', selectedChartValue: 'CONTABILIDAD WEB' });
-  assert.deepEqual(byProducto.rows.map((r) => r.id), [2]);
-  // The charts themselves are never narrowed by the selection.
-  assert.equal(byProducto.porRecurso.length, 2);
-});
-
-test('buildSegundoNivel filters by cliente (exact match) and exposes clienteOptions over the whole universe', () => {
-  const rows = [
-    rawActivoTicket({ ID: 1, Accion: 'REVISION CALIDAD', Recurso_Accion: 'Ana', Cliente: 'Acme' }),
-    rawActivoTicket({ ID: 2, Accion: 'REVISION DEV', Recurso_Accion: 'Luis', Cliente: 'Beta' })
-  ];
-  const tickets = mapper.normalizeTickets(rows);
-  const filtered = mapper.buildSegundoNivel(tickets, { cliente: 'ACME' });
-  assert.equal(filtered.kpis.total, 1);
-  assert.deepEqual(filtered.clienteOptions, ['ACME', 'BETA']);
-  assert.equal(mapper.buildSegundoNivel(tickets, { cliente: 'all' }).kpis.total, 2);
-});
-
-test('buildSegundoNivel selecting a recurso narrows rows + insight, without narrowing porRecurso itself', () => {
+test('buildSegundoNivel selectedResource narrows rows + computes the insight panel, without narrowing porRecurso itself', () => {
   const rows = [
     rawActivoTicket({ ID: 1, Accion: 'REVISION CALIDAD', Recurso_Accion: 'Ana', Producto: 'NOMINA WEB' }),
     rawActivoTicket({ ID: 2, Accion: 'REVISION DEV', Recurso_Accion: 'Ana', Producto: 'NOMINA WEB' }),
     rawActivoTicket({ ID: 3, Accion: 'REVISION SOLUCION', Recurso_Accion: 'Luis', Producto: 'CONTABILIDAD WEB' })
   ];
   const tickets = mapper.normalizeTickets(rows);
-  const result = mapper.buildSegundoNivel(tickets, { selectedChartDimension: 'recurso', selectedChartValue: 'Ana' });
+  const result = mapper.buildSegundoNivel(tickets, { selectedResource: 'Ana' });
 
   // The bar chart data (porRecurso) keeps every resource -- clicking a bar
   // never removes the other bars.
@@ -1491,9 +1449,7 @@ test('buildSegundoNivel selecting a recurso narrows rows + insight, without narr
   assert.equal(result.rows.length, 2);
   assert.ok(result.rows.every((r) => r.recurso === 'Ana'));
   assert.deepEqual(result.insight, {
-    isGeneral: false,
-    dimension: 'recurso',
-    value: 'Ana',
+    recurso: 'Ana',
     total: 2,
     topProducto: { label: 'NOMINA WEB', value: 2 },
     topDiagnostico: null, // Diagnostico absent from this fixture -> graceful degradation

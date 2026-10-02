@@ -31,7 +31,7 @@
     {
       key: 'tareaConRevision',
       fuente: 'Tarea con Revisión',
-      templateName: 'ID12096_Plantilla_tarea_con_revision',
+      templateName: 'ID12096_Plantilla_tarea_con_rev',
       recursoField: 'Funcionario_que_Resuelve',
       // Sic: real column name typo confirmed against the live OData feed
       // (unlike the other three sources' "Fecha_Inicial") -- see
@@ -43,7 +43,7 @@
     {
       key: 'seguimientoCliente',
       fuente: 'Seguimiento Cliente',
-      templateName: 'ID12098_Plantilla_seguimiento_cliente',
+      templateName: 'ID12098_Plantilla_seguimiento_c',
       recursoField: 'Responsable_de_Seguimiento',
       fechaInicialField: 'Fecha_Inicial',
       horaInicialField: 'Hora_Cal_Inicial',

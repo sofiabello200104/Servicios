@@ -26,8 +26,8 @@ runtime.
 |---|---|---|---|---|---|
 | Tickets (ya existente) | `ID12086_Tickets_medidor` | `Recurso_Soporte` | `Fecha_Soporte_Inicial`/`Fecha_Entrega_Inicial` (bloques 1/3) | — | `Hora_Cal_Inicial`/`Hora_Cal_Final` (+ bloque 3) |
 | Tarea | `ID12097_Plantilla_tarea` | `Recurso` | `Fecha_Inicial` | `Fecha_Final` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
-| Tarea con revisión | `ID12096_Plantilla_tarea_con_revision` | `Funcionario_que_Resuelve` | `Fecha_Incio` (sic, typo in the real column name — verify against the live OData response, not assumed) | `Fecha_Final` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
-| Seguimiento cliente | `ID12098_Plantilla_seguimiento_cliente` | `Responsable_de_Seguimiento` | `Fecha_Inicial` | `Fecha_Final` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
+| Tarea con revisión | `ID12096_Plantilla_tarea_con_rev` | `Funcionario_que_Resuelve` | `Fecha_Incio` (sic, typo in the real column name — verify against the live OData response, not assumed) | `Fecha_Final` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
+| Seguimiento cliente | `ID12098_Plantilla_seguimiento_c` | `Responsable_de_Seguimiento` | `Fecha_Inicial` | `Fecha_Final` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
 | Capacitación | `ID12095_Plantilla_capacitacion` | `_Colaborador_en_formacion` | `Fecha_Inicial` | `Fecha_Final` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
 
 None of the 4 new entities expose an `Estado`/`Accion`-style column in their

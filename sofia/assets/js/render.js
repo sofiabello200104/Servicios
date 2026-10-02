@@ -764,7 +764,7 @@
   let _actAllTickets = [];
   // Set by clicking a bar on chart-act-recursos-servicios -- narrows only
   // the table + summary panel below, never the charts themselves. Same
-  // click-to-select pattern as Segundo Nivel's toggleSnSelection.
+  // click-to-select pattern as Segundo Nivel's _snSelectedResource.
   let _actSelectedResource = null;
   // Set by clicking a bar on chart-act-accion-general -- narrows only the
   // table below (never the summary panel, which is resource-specific), so
@@ -1314,24 +1314,10 @@
      other view above. */
 
   let _snAllTickets = [];
-  // Set by clicking a bar/segment on any of the four charts -- narrows only
-  // the table + insight panel below, never the charts themselves. Only one
-  // selection is active at a time across all four charts.
-  let _snSelectedDimension = null;
-  let _snSelectedValue = null;
-
-  // Clicking the already-selected bar/segment clears it; clicking any other
-  // one (same chart or a different one) replaces it.
-  function toggleSnSelection(dimension, value) {
-    if (_snSelectedDimension === dimension && _snSelectedValue === value) {
-      _snSelectedDimension = null;
-      _snSelectedValue = null;
-    } else {
-      _snSelectedDimension = dimension;
-      _snSelectedValue = value;
-    }
-    rerenderSegundoNivelWithCurrentFilters();
-  }
+  // Set by clicking a bar on the Recurso_Accion chart -- narrows only the
+  // table + insight panel below (see buildSegundoNivel's two-stage
+  // filtering); never touches the four charts themselves.
+  let _snSelectedResource = null;
 
   /* -------- Recursos multi-select (checkboxes, no library -- same widget
      pattern as Capacidad's own Recursos filter, no search box). -------- */
@@ -1409,26 +1395,14 @@
       accionSel.innerHTML = '<option value="all">Todas</option>' +
         defaults.accionOptions.map((a) => '<option value="' + escapeHtml(a) + '">' + escapeHtml(a) + '</option>').join('');
     }
-    const clienteWrap = document.getElementById('filter-sn-cliente-wrap');
-    const clienteSel = document.getElementById('filter-sn-cliente');
-    if (clienteWrap) clienteWrap.classList.toggle('hidden', !defaults.hasCliente);
-    if (clienteSel && defaults.hasCliente) {
-      const prev = clienteSel.value;
-      clienteSel.innerHTML = '<option value="all">Todos los clientes</option>' +
-        defaults.clienteOptions.map((c) => '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>').join('');
-      if (defaults.clienteOptions.indexOf(prev) !== -1) clienteSel.value = prev;
-    }
   }
 
   function readSnFilters() {
     const accionSel = document.getElementById('filter-sn-accion');
-    const clienteSel = document.getElementById('filter-sn-cliente');
     return {
       recursos: readSelectedSnRecursos(),
       accion: accionSel ? accionSel.value : 'all',
-      cliente: clienteSel ? clienteSel.value : 'all',
-      selectedChartDimension: _snSelectedDimension,
-      selectedChartValue: _snSelectedValue
+      selectedResource: _snSelectedResource
     };
   }
 
@@ -1447,7 +1421,7 @@
     const recursoDataset = Object.assign({}, LIST_BAR_DATASET, {
       label: 'Requerimientos',
       data: result.porRecurso.map((r) => r.value),
-      backgroundColor: result.porRecurso.map((r) => (_snSelectedDimension === 'recurso' && r.label === _snSelectedValue) ? C.COLORS.brandDeep : LIST_BAR_COLOR)
+      backgroundColor: result.porRecurso.map((r) => r.label === _snSelectedResource ? C.COLORS.brandDeep : LIST_BAR_COLOR)
     });
     C.barChart('chart-sn-recurso', [recursoDataset], {
       horizontal: true, legend: false, labels: result.porRecurso.map((r) => r.label),
@@ -1457,7 +1431,9 @@
       dataLabels: LIST_BAR_DATA_LABELS,
       onClick: (evt, elements, chart) => {
         if (!elements.length) return;
-        toggleSnSelection('recurso', chart.data.labels[elements[0].index]);
+        const label = chart.data.labels[elements[0].index];
+        _snSelectedResource = (_snSelectedResource === label) ? null : label;
+        rerenderSegundoNivelWithCurrentFilters();
       }
     });
 
@@ -1481,11 +1457,10 @@
         }
       })
     });
-    C.barChart('chart-sn-cliente', [Object.assign({}, LIST_BAR_DATASET, {
+    C.barChart('chart-sn-cliente', [Object.assign({
       label: 'Requerimientos',
-      data: result.porCliente.map((c) => c.value),
-      backgroundColor: result.porCliente.map((c) => (_snSelectedDimension === 'cliente' && c.label === _snSelectedValue) ? C.COLORS.brandDeep : LIST_BAR_COLOR)
-    })], {
+      data: result.porCliente.map((c) => c.value)
+    }, LIST_BAR_DATASET)], {
       horizontal: true, legend: false, labels: result.porCliente.map((c) => c.label),
       layout: LIST_BAR_LAYOUT,
       yOpts: snClienteAxis,
@@ -1498,11 +1473,7 @@
           label: (item) => item.parsed.x + ' requerimientos'
         }
       },
-      dataLabels: LIST_BAR_DATA_LABELS,
-      onClick: (evt, elements, chart) => {
-        if (!elements.length) return;
-        toggleSnSelection('cliente', chart.data.labels[elements[0].index]);
-      }
+      dataLabels: LIST_BAR_DATA_LABELS
     });
 
     // 3) Diagnóstico -- donut, same degradation as Cliente above when the
@@ -1511,42 +1482,18 @@
     // CANONICAL_ALIASES.diagnostico).
     C.chartEmptyState('chart-sn-diagnostico', !result.hasDiagnostico, 'La plantilla OData no incluye la columna Diagnóstico en la plantilla.');
     const diagnosticoColors = result.porDiagnostico.map((_, i) => C.PRODUCTO_COLORS[i % C.PRODUCTO_COLORS.length]);
-    C.doughnut('chart-sn-diagnostico', result.porDiagnostico.map((d) => d.label), result.porDiagnostico.map((d) => d.value), diagnosticoColors, {
-      showPercent: true, cutout: '60%',
-      onClick: (evt, elements, chart) => {
-        if (!elements.length) return;
-        toggleSnSelection('diagnostico', chart.data.labels[elements[0].index]);
-      }
-    });
+    C.doughnut('chart-sn-diagnostico', result.porDiagnostico.map((d) => d.label), result.porDiagnostico.map((d) => d.value), diagnosticoColors, { showPercent: true, cutout: '60%' });
 
     // 4) Producto -- donut, whole filtered universe (Producto always exists).
     const productoColors = result.porProducto.map((_, i) => C.PRODUCTO_COLORS[i % C.PRODUCTO_COLORS.length]);
-    C.doughnut('chart-sn-producto', result.porProducto.map((p) => p.label), result.porProducto.map((p) => p.value), productoColors, {
-      showPercent: true, cutout: '60%',
-      onClick: (evt, elements, chart) => {
-        if (!elements.length) return;
-        toggleSnSelection('producto', chart.data.labels[elements[0].index]);
-      }
-    });
+    C.doughnut('chart-sn-producto', result.porProducto.map((p) => p.label), result.porProducto.map((p) => p.value), productoColors, { showPercent: true, cutout: '60%' });
   }
 
   /* -------- Table -------- */
 
   const SN_TABLE_COLUMNS = ['ID', 'Recurso', 'Cliente', 'Producto', 'Accion', 'Asunto'];
 
-  // Dimension -> chart title, used by the insight panel's header.
-  const SN_DIMENSION_LABELS = {
-    recurso: 'Recurso',
-    cliente: 'Cliente',
-    diagnostico: 'Diagnóstico',
-    producto: 'Producto'
-  };
-
-  function snRowsHtml(result) {
-    if (!result.hasSelection) {
-      return '<tr><td colspan="' + SN_TABLE_COLUMNS.length + '" style="text-align:center;color:#94A3B8;padding:20px;">Selecciona una barra o segmento de cualquier gráfica para ver los tickets asociados.</td></tr>';
-    }
-    const rows = result.rows;
+  function snRowsHtml(rows) {
     return rows.length
       ? rows.map((r) => (
           '<tr>' +
@@ -1563,14 +1510,13 @@
 
   function renderSnTable(result) {
     document.getElementById('table-segundo-nivel-head').innerHTML = '<tr>' + SN_TABLE_COLUMNS.map((h) => '<th>' + h + '</th>').join('') + '</tr>';
-    document.getElementById('table-segundo-nivel-body').innerHTML = snRowsHtml(result);
+    document.getElementById('table-segundo-nivel-body').innerHTML = snRowsHtml(result.rows);
   }
 
   /* -------- Insight panel -------- */
 
   function snNarrative(insight) {
-    const subject = insight.isGeneral ? 'La vista general' : insight.value;
-    const parts = [subject + ' tiene ' + insight.total + (insight.total === 1 ? ' requerimiento' : ' requerimientos') + ' de segundo nivel en los filtros actuales'];
+    const parts = [insight.recurso + ' tiene ' + insight.total + (insight.total === 1 ? ' requerimiento' : ' requerimientos') + ' de segundo nivel en los filtros actuales'];
     if (insight.topAccion) parts.push('la acción más frecuente es ' + insight.topAccion.label);
     if (insight.topProducto) parts.push('el producto más frecuente es ' + insight.topProducto.label);
     if (insight.topDiagnostico) parts.push('el diagnóstico más frecuente es ' + insight.topDiagnostico.label);
@@ -1580,27 +1526,23 @@
   function renderSnInsight(result) {
     const panel = document.getElementById('sn-insight-panel');
     if (!panel) return;
-    // Always renders: no selection = "Vista general" over the whole
-    // filtered universe (unlike the table, which stays empty).
     const insight = result.insight;
-    const header = insight.isGeneral
-      ? 'Filtro activo: Vista general'
-      : 'Filtro activo: ' + (SN_DIMENSION_LABELS[insight.dimension] || '') + ' = ' + insight.value;
+    if (!insight) {
+      panel.innerHTML = '<p class="text-[12px] text-slate-500">Seleccione una barra del gráfico "Requerimientos por Recurso" para ver el detalle de un recurso.</p>';
+      return;
+    }
     panel.innerHTML =
-      '<h4 class="text-sm font-bold text-slate-800 mb-3">' + escapeHtml(header) + '</h4>' +
-      '<div class="text-2xl font-extrabold text-slate-900 mb-3">' + insight.total + '<span class="text-xs text-slate-400 font-semibold ml-1">tickets en esta vista</span></div>' +
+      '<h4 class="text-sm font-bold text-slate-800 mb-3">' + escapeHtml(insight.recurso) + '</h4>' +
+      '<div class="text-2xl font-extrabold text-slate-900 mb-3">' + insight.total + '<span class="text-xs text-slate-400 font-semibold ml-1">requerimientos</span></div>' +
       '<dl class="space-y-2 text-[12px]">' +
       '<div><dt class="text-slate-500">Producto principal</dt><dd class="font-semibold text-slate-800">' + (insight.topProducto ? escapeHtml(insight.topProducto.label) + ' (' + insight.topProducto.value + ')' : '—') + '</dd></div>' +
       '<div><dt class="text-slate-500">Diagnóstico principal</dt><dd class="font-semibold text-slate-800">' + (insight.topDiagnostico ? escapeHtml(insight.topDiagnostico.label) + ' (' + insight.topDiagnostico.value + ')' : '—') + '</dd></div>' +
-      '<div><dt class="text-slate-500">Acción predominante</dt><dd class="font-semibold text-slate-800">' + (insight.topAccion ? escapeHtml(insight.topAccion.label) + ' (' + insight.topAccion.value + ')' : '—') + '</dd></div>' +
+      '<div><dt class="text-slate-500">Acción principal</dt><dd class="font-semibold text-slate-800">' + (insight.topAccion ? escapeHtml(insight.topAccion.label) + ' (' + insight.topAccion.value + ')' : '—') + '</dd></div>' +
       '</dl>' +
       '<p class="text-[12px] text-slate-600 mt-3 italic">' + escapeHtml(snNarrative(insight)) + '</p>';
   }
 
   /* -------- Entry point -------- */
-
-  // Dimension -> the result list holding that chart's current bars/segments.
-  const SN_DIMENSION_RESULT_FIELD = { recurso: 'porRecurso', cliente: 'porCliente', diagnostico: 'porDiagnostico', producto: 'porProducto' };
 
   function renderSegundoNivel(tickets, opts) {
     opts = opts || {};
@@ -1610,17 +1552,14 @@
     const filters = readSnFilters();
     const result = M.buildSegundoNivel(tickets, filters);
 
-    // A previously selected bar/segment that no longer appears under the
-    // current Recursos/Accion/Cliente filters can't stay "selected" -- drop
-    // it and rebuild once so the table/insight never show a stale selection.
-    if (_snSelectedDimension) {
-      const field = SN_DIMENSION_RESULT_FIELD[_snSelectedDimension];
-      if (!field || !result[field].some((e) => e.label === _snSelectedValue)) {
-        _snSelectedDimension = null;
-        _snSelectedValue = null;
-        renderSegundoNivel(tickets, { repopulateFilters: false });
-        return;
-      }
+    // A previously selected resource that no longer appears under the
+    // current Recursos/Accion filters (e.g. narrowing Accion excludes every
+    // ticket for it) can't stay "selected" -- drop it and rebuild once so
+    // the table/insight panel never show a stale selection.
+    if (_snSelectedResource && !result.porRecurso.some((r) => r.label === _snSelectedResource)) {
+      _snSelectedResource = null;
+      renderSegundoNivel(tickets, { repopulateFilters: false });
+      return;
     }
 
     renderSnKpi(result);
@@ -1641,10 +1580,7 @@
     updateSnRecursosTriggerLabel();
     const accionSel = document.getElementById('filter-sn-accion');
     if (accionSel) accionSel.value = 'all';
-    const clienteSel = document.getElementById('filter-sn-cliente');
-    if (clienteSel) clienteSel.value = 'all';
-    _snSelectedDimension = null;
-    _snSelectedValue = null;
+    _snSelectedResource = null;
     rerenderSegundoNivelWithCurrentFilters();
   }
 

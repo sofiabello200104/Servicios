@@ -91,8 +91,8 @@ consultor tiene agendado, no solo tickets de soporte:
 |---|---|---|---|---|
 | Tickets | `ID12086_Tickets_medidor` | `Recurso_Soporte` | `Fecha_Soporte_Inicial` (bloque 1) | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
 | Tarea | `ID12097_Plantilla_tarea` | `Recurso` | `Fecha_Inicial` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
-| Tarea con revisión | `ID12096_Plantilla_tarea_con_revision` | `Funcionario_que_Resuelve` | `Fecha_Incio` (sic, typo real de la columna en el feed en vivo) | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
-| Seguimiento cliente | `ID12098_Plantilla_seguimiento_cliente` | `Responsable_de_Seguimiento` | `Fecha_Inicial` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
+| Tarea con revisión | `ID12096_Plantilla_tarea_con_rev` | `Funcionario_que_Resuelve` | `Fecha_Incio` (sic, typo real de la columna en el feed en vivo) | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
+| Seguimiento cliente | `ID12098_Plantilla_seguimiento_c` | `Responsable_de_Seguimiento` | `Fecha_Inicial` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
 | Capacitación | `ID12095_Plantilla_capacitacion` | `_Colaborador_en_formacion` | `Fecha_Inicial` | `Hora_Cal_Inicial`/`Hora_Cal_Final` |
 
 `assets/js/data-sources.js` (`window.SOFIA_DATA_SOURCES`) trae el registro
