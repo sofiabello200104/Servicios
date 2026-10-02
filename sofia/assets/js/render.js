@@ -180,23 +180,6 @@
     return parts[2] + '/' + parts[1] + '/' + parts[0];
   }
 
-  // Segment tables for the two "tacómetro" gauges — copied verbatim from
-  // especificacion_ui_dashboard.fila_tacometros_individuales (spec v2).
-  const GAUGE_PROGRAMADO_SEGMENTS = [
-    { limite: 70, color: '#3B82F6', label: 'Alta Disponibilidad' },
-    { limite: 85, color: '#10B981', label: 'Óptimo' },
-    { limite: 100, color: '#F59E0B', label: 'Límite' },
-    { limite: 150, color: '#EF4444', label: 'Saturado' }
-  ];
-  const GAUGE_TIEMPO_REAL_SEGMENTS = [
-    { limite: 80, color: '#3B82F6', label: 'Cierre Rápido' },
-    { limite: 105, color: '#10B981', label: 'En Tiempo' },
-    { limite: 150, color: '#EF4444', label: 'Excedido' }
-  ];
-
-  function gaugeBand(segments, value) {
-    return segments.find((s) => value <= s.limite) || segments[segments.length - 1];
-  }
 
   /* -------- Recursos multi-select (checkboxes, no library) -------- */
 
@@ -290,9 +273,6 @@
     const hastaInput = document.getElementById('filter-cap-hasta');
     const clienteSel = document.getElementById('filter-cap-cliente');
     const clienteHelp = document.getElementById('filter-cap-cliente-help');
-    const gaugeSel = document.getElementById('filter-cap-gauge-recurso');
-    const gaugeDesdeInput = document.getElementById('filter-cap-gauge-desde');
-    const gaugeHastaInput = document.getElementById('filter-cap-gauge-hasta');
 
     // Team = buildCapacidad's own resource names (already without "Sin dato"
     // and with accent/casing variants fused across the 5 sources), narrowed
@@ -319,40 +299,10 @@
     }
     populateProyectoOptions(tickets, 'all');
 
-    // Gauge resource selector (LOCAL to the gauge row, spec v3): options
-    // always refresh to the current team; preserve the user's prior pick
-    // across a data reload when it's still valid.
-    const gaugeHadOptions = gaugeSel.options.length > 0;
-    const prevGaugeValue = gaugeSel.value;
-    gaugeSel.innerHTML = recursos.map((r) => '<option value="' + escapeHtml(r) + '">' + escapeHtml(r) + '</option>').join('');
-    let gaugeValueRestored = false;
-    if (gaugeHadOptions && recursos.indexOf(prevGaugeValue) !== -1) {
-      gaugeSel.value = prevGaugeValue;
-      gaugeValueRestored = true;
-    }
-
     const isFirstLoad = !desdeInput.value || !hastaInput.value;
-    const gaugeIsFirstLoad = !gaugeDesdeInput.value || !gaugeHastaInput.value;
-    if (isFirstLoad || gaugeIsFirstLoad) {
-      // No explicit filters yet -> buildCapacidad resolves the "mes a la
-      // fecha" default period; sync the controls to what it actually picked
-      // so the UI never shows a stale default. The gauge row's own local
-      // Desde/Hasta default to that SAME period (independent inputs, same
-      // starting value) per spec v3. Its porRecurso (sorted desc by % Uso,
-      // i.e. by Horas Reservadas since every resource shares the same period
-      // capacity) also gives the gauge selector's own default: the top
-      // resource by reservadas desc -- includes extraRows so a
-      // Capacitación-only consultant can also win the default pick.
-      if (isFirstLoad) {
-        desdeInput.value = defaults.periodo.from;
-        hastaInput.value = defaults.periodo.to;
-      }
-      if (gaugeIsFirstLoad) {
-        gaugeDesdeInput.value = defaults.periodo.from;
-        gaugeHastaInput.value = defaults.periodo.to;
-        const topInTeam = defaults.porRecurso.find((r) => recursos.indexOf(r.recurso) !== -1);
-        if (!gaugeValueRestored && topInTeam) gaugeSel.value = topInTeam.recurso;
-      }
+    if (isFirstLoad) {
+      desdeInput.value = defaults.periodo.from;
+      hastaInput.value = defaults.periodo.to;
     }
   }
 
@@ -374,6 +324,14 @@
 
   function renderCapKpis(result) {
     const k = result.kpis;
+
+    // Build tickets stats for the 5th KPI: total tickets + avg minutes
+    // using the same filtered dataset already passed into result.
+    const statsRows = result.porRecurso || [];
+    const totalTickets = statsRows.reduce((s, r) => s + (r.recuentoTickets || 0), 0);
+    const totalMinutes = statsRows.reduce((s, r) => s + (r.totalMinutes || 0), 0);
+    const avgMinutos = totalTickets > 0 ? (totalMinutes / totalTickets) : 0;
+
     const cards = [
       C.kpiCard({ title: 'Capacidad Instalada', value: formatHoras(k.capacidad), unit: ' h', noChip: true, hasData: false }),
       C.kpiCard({ title: 'Horas Agendadas', value: formatHoras(k.reservadas), unit: ' h', noChip: true, hasData: false }),
@@ -392,6 +350,17 @@
       '<div class="text-2xl font-extrabold text-slate-900 kpi-num">' + formatPct(k.utilizacionPct) + '<span class="text-base text-slate-400 font-bold">%</span></div>' +
       '</div>' +
       '<div class="spark-wrap mt-2"></div>' +
+      '</div>'
+    );
+    // 5th KPI: Total Tickets Atendidos + promedio de minutos
+    cards.push(
+      '<div class="card p-4">' +
+      '<div class="text-[12px] font-semibold text-slate-700 leading-tight">Total Tickets Atendidos</div>' +
+      '<div class="mt-3 flex items-baseline gap-2">' +
+      '<div class="text-2xl font-extrabold text-slate-900 kpi-num">' + totalTickets + '</div>' +
+      '<span class="text-sm text-slate-400 font-medium">tickets</span>' +
+      '</div>' +
+      '<div class="text-[11px] text-slate-500 mt-1">Promedio: <strong>' + avgMinutos.toFixed(1) + ' min</strong> por ticket</div>' +
       '</div>'
     );
     document.getElementById('kpi-row-capacidad').innerHTML = cards.join('');
@@ -471,69 +440,93 @@
     });
   }
 
-  /* -------- Gauges (tacómetros individuales) -------- */
+  /* -------- Grouped bar: Avg minutes + ticket count per resource -------- */
 
-  function updateGaugeLocalPeriodHint(from, to) {
-    const hint = document.getElementById('gauge-local-period-hint');
-    if (!hint) return;
-    if (!from || !to) { hint.textContent = ''; return; }
-    const wd = M.countWorkingDays(from, to);
-    const habiles = wd.monThu + wd.fri;
-    hint.textContent = 'Período local: ' + isoToDMY(from) + ' – ' + isoToDMY(to) + ' · ' + habiles + (habiles === 1 ? ' día hábil' : ' días hábiles');
-  }
+  // Computes per-resource ticket stats (count + avg minutes from
+  // Tiempo_de_llamada) from the already-filtered ticket set, then renders
+  // a grouped bar chart with data labels.
+  function renderCapTicketsBar(tickets, filters) {
+    const team = filters.recursos || _capTeam;
+    // Build per-resource stats: count tickets whose recurso is in the team
+    // and that fall within filters.from/to.
+    const fromD = filters.from ? new Date(filters.from + 'T00:00:00Z') : null;
+    const toD = filters.to ? new Date(filters.to + 'T23:59:59Z') : null;
 
-  // The gauge row has its OWN resource + date-range selectors, entirely
-  // independent of the main Recursos/Cliente/Proyecto/Desde/Hasta filters
-  // (spec v3 fila_tacometros.tacometro_izquierda.filtros_locales) — reads
-  // its inputs directly rather than taking the main filter set as a param,
-  // so it can be re-run standalone whenever any of its own three controls
-  // change without touching the rest of the view.
-  function renderCapGauges(tickets) {
-    const recurso = document.getElementById('filter-cap-gauge-recurso').value;
-    const from = document.getElementById('filter-cap-gauge-desde').value;
-    const to = document.getElementById('filter-cap-gauge-hasta').value;
-    updateGaugeLocalPeriodHint(from, to);
+    const statsMap = {};
+    team.forEach((r) => { statsMap[r] = { count: 0, totalMin: 0 }; });
 
-    const valueEl = document.getElementById('gauge-programado-value');
-    const labelEl = document.getElementById('gauge-programado-label');
-    const footerEl = document.getElementById('gauge-programado-footer');
-    const valueEl2 = document.getElementById('gauge-tiemporeal-value');
-    const labelEl2 = document.getElementById('gauge-tiemporeal-label');
-    const footerEl2 = document.getElementById('gauge-tiemporeal-footer');
+    tickets.forEach((t) => {
+      if (!t.recurso || !M.isRecursoInList(t.recurso, team)) return;
+      if (t.fecha) {
+        if (fromD && t.fecha < fromD) return;
+        if (toD && t.fecha > toD) return;
+      }
+      // Find canonical name in team
+      const canon = team.find((n) => M.isRecursoInList(t.recurso, [n]));
+      if (!canon) return;
+      statsMap[canon].count += 1;
+      const mins = typeof t.tiempoDeLlamada === 'number' ? t.tiempoDeLlamada
+        : (parseFloat(t.tiempoDeLlamada) || 0);
+      statsMap[canon].totalMin += mins;
+    });
 
-    if (!recurso) {
-      C.segmentedGauge('chart-gauge-programado', null, GAUGE_PROGRAMADO_SEGMENTS, { hasData: false });
-      C.segmentedGauge('chart-gauge-tiemporeal', null, GAUGE_TIEMPO_REAL_SEGMENTS, { hasData: false });
-      valueEl.textContent = '—'; labelEl.textContent = 'Sin recurso'; footerEl.textContent = '';
-      valueEl2.textContent = '—'; labelEl2.textContent = 'Sin recurso'; footerEl2.textContent = '';
-      return;
+    // Build ordered arrays aligned to the team, only include resources with data
+    const entries = team
+      .map((r) => ({ recurso: r, ...statsMap[r] }))
+      .filter((e) => e.count > 0 || team.length <= 5); // show all when team is small
+    const labels = entries.map((e) =>
+      e.recurso.split(/\s+/).filter((_, i, all) => i === 0 || i === (all.length >= 4 ? 2 : 1)).join(' ') || e.recurso
+    );
+    const fullNames = entries.map((e) => e.recurso);
+    const avgData = entries.map((e) => e.count > 0 ? +(e.totalMin / e.count).toFixed(1) : 0);
+    const countData = entries.map((e) => e.count);
+
+    const hasData = entries.some((e) => e.count > 0);
+    C.chartEmptyState('chart-cap-tickets-stats', !hasData, 'Sin tickets para los filtros seleccionados');
+
+    const totalTickets = entries.reduce((s, e) => s + e.count, 0);
+    const totalMin = entries.reduce((s, e) => s + e.totalMin, 0);
+    const globalAvg = totalTickets > 0 ? (totalMin / totalTickets).toFixed(1) : '—';
+    const noteEl = document.getElementById('chart-cap-tickets-stats-note');
+    if (noteEl) {
+      noteEl.textContent = 'Total tickets: ' + totalTickets +
+        ' · Promedio global: ' + globalAvg + ' min/ticket' +
+        (filters.from && filters.to ? ' · Período: ' + isoToDMY(filters.from) + ' – ' + isoToDMY(filters.to) : '');
     }
 
-    const g = M.buildRecursoGauges(tickets, { recurso: recurso, from: from, to: to });
-
-    const bandA = gaugeBand(GAUGE_PROGRAMADO_SEGMENTS, g.programado.pct);
-    C.segmentedGauge('chart-gauge-programado', g.programado.pct, GAUGE_PROGRAMADO_SEGMENTS);
-    valueEl.textContent = formatPct(g.programado.pct) + '%';
-    labelEl.textContent = bandA.label;
-    footerEl.textContent = formatHoras(g.programado.horas) + 'h programadas / ' + formatHoras(g.programado.capacidad) + 'h capacidad';
-
-    if (g.tiempoReal.hasData) {
-      const bandB = gaugeBand(GAUGE_TIEMPO_REAL_SEGMENTS, g.tiempoReal.pct);
-      C.segmentedGauge('chart-gauge-tiemporeal', g.tiempoReal.pct, GAUGE_TIEMPO_REAL_SEGMENTS);
-      valueEl2.textContent = formatPct(g.tiempoReal.pct) + '%';
-      labelEl2.textContent = bandB.label;
-    } else {
-      C.segmentedGauge('chart-gauge-tiemporeal', null, GAUGE_TIEMPO_REAL_SEGMENTS, { hasData: false });
-      valueEl2.textContent = '—';
-      labelEl2.textContent = 'Sin datos de tiempo real';
-    }
-    footerEl2.textContent = formatHoras(g.tiempoReal.horasReales) + 'h reales / ' + formatHoras(g.tiempoReal.horasProgramadas) + 'h programadas';
+    C.barChart('chart-cap-tickets-stats', [
+      {
+        label: 'Promedio de Minutos',
+        data: avgData,
+        backgroundColor: '#0099FF',
+        borderRadius: 4,
+        datalabels: { anchor: 'end', align: 'top', color: '#0099FF', font: { weight: 'bold', size: 10 } }
+      },
+      {
+        label: 'Recuento de Tickets',
+        data: countData,
+        backgroundColor: '#002299',
+        borderRadius: 4,
+        datalabels: { anchor: 'end', align: 'top', color: '#002299', font: { weight: 'bold', size: 10 } }
+      }
+    ], {
+      labels: labels,
+      dataLabels: true,
+      xOpts: { ticks: { autoSkip: false, font: { size: 10 }, maxRotation: 40, minRotation: 0 } },
+      yOpts: { title: { display: true, text: 'Valor', color: '#94A3B8', font: { size: 11 } } },
+      tooltipOpts: {
+        callbacks: {
+          title: (items) => fullNames[items[0].dataIndex],
+          label: (item) => {
+            if (item.datasetIndex === 0) return 'Promedio: ' + item.parsed.y + ' min/ticket';
+            return 'Tickets: ' + item.parsed.y;
+          }
+        }
+      }
+    });
   }
 
-  function onCapGaugeFiltersChange() {
-    if (!_capAllTickets.length) return;
-    renderCapGauges(_capAllTickets);
-  }
+
 
   function sortCapRows(rows, key, dir) {
     return rows.slice().sort((a, b) => {
@@ -739,8 +732,9 @@
 
     renderCapKpis(result);
     renderCapCharts(result, filters);
+    renderCapTicketsBar(tickets, filters);
     renderCapTable(result, filters);
-    renderCapGauges(tickets);
+
   }
 
   function rerenderCapWithCurrentFilters() {
@@ -763,10 +757,8 @@
     const defaults = M.buildCapacidad(_capAllTickets, {}, _capExtraRows);
     document.getElementById('filter-cap-desde').value = defaults.periodo.from;
     document.getElementById('filter-cap-hasta').value = defaults.periodo.to;
-    // The gauge row's own local Desde/Hasta/Recurso are intentionally left
-    // untouched — "Limpiar" only resets the main filter row, per spec v3's
-    // gauge filters being fully independent.
     rerenderCapWithCurrentFilters();
+
   }
 
   /* ==================== Tickets Activos ====================

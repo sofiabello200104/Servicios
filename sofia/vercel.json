@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "functions": {
+    "api/odata-proxy.js": { "maxDuration": 300 },
+    "api/config.js":      { "maxDuration": 10  },
+    "api/config/test.js": { "maxDuration": 30  },
+    "api/sample.js":      { "maxDuration": 10  }
+  },
+  "routes": [
+    { "src": "/api/odata-proxy", "dest": "/api/odata-proxy.js" },
+    { "src": "/api/config/test", "dest": "/api/config/test.js" },
+    { "src": "/api/config",      "dest": "/api/config.js"      },
+    { "src": "/api/sample",      "dest": "/api/sample.js"      },
+    { "src": "/assets/(.*)",     "dest": "/assets/$1"          },
+    { "src": "/(.*)",            "dest": "/index.html"         }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options",  "value": "nosniff"      },
+        { "key": "X-Frame-Options",          "value": "DENY"         },
+        { "key": "Referrer-Policy",          "value": "no-referrer"  }
+      ]
+    }
+  ]
+}

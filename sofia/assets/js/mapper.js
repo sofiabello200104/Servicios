@@ -238,14 +238,16 @@
     'Edwin Yitzjak Campos Pisso',
     'Jaiber Mauricio Torrente Quintero',
     'Jhonatan Steven Baicue Bolivar',
-    'Heidy Herman Osorio Chavez',
     'Jorge Enrique Borrero Libreros',
-    'Laura Sofia Bello Cabrera',
     'Xiomara Lizeth Naranjo Pascuas',
+    'Heidy Herman Osorio Chavez',
+    'Anyela Fabriny Villegas Lozano',
+    'Laura Sofia Bello Cabrera',
     'Jaider David Ramirez Lozada',
     'Paola Andrea Macias Rojas',
     'David Ricardo Salazar Rodríguez'
   ];
+
 
   // Keeps only the porRecurso rows whose recurso is in allowList. Matched on
   // recursoGroupKey (accent/case-insensitive), the same key that fuses name

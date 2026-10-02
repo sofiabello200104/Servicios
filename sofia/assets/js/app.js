@@ -266,13 +266,7 @@
     const clienteSel = document.getElementById('filter-cap-cliente');
     if (clienteSel) clienteSel.addEventListener('change', () => window.SOFIA_RENDER.onCapClienteChange());
 
-    // The gauge row's Recurso + local Desde/Hasta are independent of the
-    // main filters (spec v3's own filtros_locales) — any of the three only
-    // re-renders the two gauges, never the rest of the view.
-    ['filter-cap-gauge-recurso', 'filter-cap-gauge-desde', 'filter-cap-gauge-hasta'].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener('change', () => window.SOFIA_RENDER.onCapGaugeFiltersChange());
-    });
+
 
     window.SOFIA_RENDER.wireCapRecursosMultiSelect();
     window.SOFIA_RENDER.wireDrilldownModal();

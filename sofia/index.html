@@ -199,8 +199,14 @@
         </div>
 
         <!-- KPIs -->
-        <div id="kpi-row-capacidad" class="card-loading-target grid grid-cols-2 lg:grid-cols-4 gap-4 mb-2"></div>
-        <p class="text-[11px] text-slate-500 mb-6" id="semaforo-legend"></p>
+        <div id="kpi-row-capacidad" class="card-loading-target grid grid-cols-2 lg:grid-cols-5 gap-4 mb-2"></div>
+        <p class="text-[11px] text-slate-500 mb-2" id="semaforo-legend"></p>
+
+        <!-- Calculation memo banner -->
+        <div id="cap-calculo-banner" class="flex items-start gap-2 bg-sky-50 border border-sky-200 rounded-xl px-4 py-2.5 mb-6 text-[11px] text-sky-800">
+          <svg class="w-4 h-4 shrink-0 mt-0.5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span><strong>Memoria de cálculo:</strong> La Capacidad Instalada se determina multiplicando los días hábiles del periodo seleccionado por la jornada operativa neta diaria asignada a cada recurso activo.</span>
+        </div>
 
         <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -215,40 +221,11 @@
           </div>
         </div>
 
-        <!-- Tacómetros individuales — filtros LOCALES, independientes de los
-             filtros principales de arriba (recursos/cliente/proyecto/período). -->
-        <div class="card p-4 mb-3 flex flex-wrap items-end gap-3">
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-cap-gauge-recurso">Seleccionar recurso</label>
-            <select id="filter-cap-gauge-recurso" class="filter-select" style="min-width:260px;"></select>
-          </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-cap-gauge-desde">Desde</label>
-            <input type="date" id="filter-cap-gauge-desde" class="filter-select input-base" />
-          </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-cap-gauge-hasta">Hasta</label>
-            <input type="date" id="filter-cap-gauge-hasta" class="filter-select input-base" />
-          </div>
-          <p class="text-[11px] text-slate-500 basis-full" id="gauge-local-period-hint"></p>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Horas Programadas por Recurso</h3>
-            <div class="chart-box gauge-wrap">
-              <canvas id="chart-gauge-programado"></canvas>
-              <div class="gauge-center"><span class="val" id="gauge-programado-value">—</span><span class="lbl" id="gauge-programado-label">Sin datos</span></div>
-            </div>
-            <p class="text-[11px] text-slate-500 text-center mt-2" id="gauge-programado-footer"></p>
-          </div>
-          <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Tiempo Real de Soporte vs Programado</h3>
-            <div class="chart-box gauge-wrap">
-              <canvas id="chart-gauge-tiemporeal"></canvas>
-              <div class="gauge-center"><span class="val" id="gauge-tiemporeal-value">—</span><span class="lbl" id="gauge-tiemporeal-label">Sin datos</span></div>
-            </div>
-            <p class="text-[11px] text-slate-500 text-center mt-2" id="gauge-tiemporeal-footer"></p>
-          </div>
+        <!-- Grouped bar: Promedio de minutos y Recuento de tickets por recurso -->
+        <div class="card p-5 card-loading-target mb-6">
+          <h3 class="text-sm font-bold text-slate-800 mb-3">Promedio en minutos y Recuento de Tickets por Recurso</h3>
+          <div class="chart-box-legend"><canvas id="chart-cap-tickets-stats"></canvas></div>
+          <p class="text-[11px] text-slate-500 mt-2" id="chart-cap-tickets-stats-note"></p>
         </div>
 
         <!-- Detalle por recurso: cuadrícula de tarjetas (reemplaza la tabla).
