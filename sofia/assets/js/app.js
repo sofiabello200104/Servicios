@@ -276,7 +276,6 @@
 
     window.SOFIA_RENDER.wireCapRecursosMultiSelect();
     window.SOFIA_RENDER.wireDrilldownModal();
-    window.SOFIA_RENDER.wireCapExtraSourcesNotice();
 
     ['filter-act-soporte-desde', 'filter-act-soporte-hasta', 'filter-act-entrega-desde', 'filter-act-entrega-hasta'].forEach((id) => {
       const el = document.getElementById(id);

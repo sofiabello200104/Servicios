@@ -228,9 +228,10 @@
     return stripDiacritics(titleCasedName).toLowerCase();
   }
 
-  // People shown in Capacidad's "Detalle por recurso" card grid (user list,
-  // 2026-10-02). Only the cards are narrowed -- KPIs and charts in the same
-  // view still cover the whole team.
+  // Capacidad y Rendimiento's team (user list, 2026-10-02). Defines the whole
+  // view: the Recursos filter and gauge selector only offer these people,
+  // "Todos los recursos" means these people (so KPIs, charts and cards all
+  // count the same set), and the resource cards show only them.
   var CAP_CARD_RECURSOS = [
     'Marlon Hernando Serna Loaiza',
     'Lina María Peralta Montealegre',
@@ -254,9 +255,15 @@
   function filterRecursosByList(rows, allowList) {
     rows = Array.isArray(rows) ? rows : [];
     if (!Array.isArray(allowList) || !allowList.length) return rows;
-    var allowed = {};
-    allowList.forEach(function (n) { allowed[recursoGroupKey(toTitleCase(n))] = true; });
-    return rows.filter(function (r) { return allowed[recursoGroupKey(toTitleCase(r.recurso))] === true; });
+    return rows.filter(function (r) { return isRecursoInList(r.recurso, allowList); });
+  }
+
+  // Same accent/case-insensitive match as filterRecursosByList, for a bare
+  // name (filter options, gauge selector). An empty/missing list matches all.
+  function isRecursoInList(name, allowList) {
+    if (!Array.isArray(allowList) || !allowList.length) return true;
+    var key = recursoGroupKey(toTitleCase(name));
+    return allowList.some(function (n) { return recursoGroupKey(toTitleCase(n)) === key; });
   }
 
   // Per-row Title Case only merges pure case differences ("PAOLA X" vs
@@ -1410,6 +1417,7 @@
     initialsFromName: initialsFromName,
     CAP_CARD_RECURSOS: CAP_CARD_RECURSOS,
     filterRecursosByList: filterRecursosByList,
+    isRecursoInList: isRecursoInList,
     normalizeRecurso: normalizeRecurso,
     groupPrioridad: groupPrioridad,
     normalizeTickets: normalizeTickets,

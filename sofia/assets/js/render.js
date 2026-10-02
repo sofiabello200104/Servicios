@@ -167,8 +167,9 @@
   // module state, same pattern as _capAllTickets, so rerenderCapWithCurrentFilters/
   // clearCapacidadFilters/openDrilldownModal don't need it re-passed on every call.
   let _capExtraRows = [];
-  let _capFailedSources = [];
-  let _capExtraNoticeDismissed = false;
+  // Capacidad's team: the M.CAP_CARD_RECURSOS people present in the data,
+  // under their canonical buildCapacidad names. Set by populateCapFilters.
+  let _capTeam = [];
 
   function formatHoras(n) { return (Number(n) || 0).toFixed(1); }
   function formatPct(n) { return (Number(n) || 0).toFixed(1); }
@@ -293,10 +294,16 @@
     const gaugeDesdeInput = document.getElementById('filter-cap-gauge-desde');
     const gaugeHastaInput = document.getElementById('filter-cap-gauge-hasta');
 
-    // "Sin dato" is excluded from Recursos: buildCapacidad already excludes
-    // it from the team/capacity calculation, so offering it as a filter
-    // option would only ever produce an empty result.
-    const recursos = Array.from(new Set(tickets.map((t) => t.recursoSoporte).filter((r) => r && r !== 'Sin dato'))).sort();
+    // Team = buildCapacidad's own resource names (already without "Sin dato"
+    // and with accent/casing variants fused across the 5 sources), narrowed
+    // to M.CAP_CARD_RECURSOS. Using the canonical names means every option
+    // matches a team key exactly when passed back as filters.recursos.
+    const defaults = M.buildCapacidad(tickets, {}, extraRows);
+    const recursos = defaults.porRecurso
+      .map((r) => r.recurso)
+      .filter((r) => M.isRecursoInList(r, M.CAP_CARD_RECURSOS))
+      .sort();
+    _capTeam = recursos;
     renderRecursosOptions(recursos);
     updateRecursosTriggerLabel();
 
@@ -336,7 +343,6 @@
       // capacity) also gives the gauge selector's own default: the top
       // resource by reservadas desc -- includes extraRows so a
       // Capacitación-only consultant can also win the default pick.
-      const defaults = M.buildCapacidad(tickets, {}, extraRows);
       if (isFirstLoad) {
         desdeInput.value = defaults.periodo.from;
         hastaInput.value = defaults.periodo.to;
@@ -344,16 +350,21 @@
       if (gaugeIsFirstLoad) {
         gaugeDesdeInput.value = defaults.periodo.from;
         gaugeHastaInput.value = defaults.periodo.to;
-        if (!gaugeValueRestored && defaults.porRecurso.length) gaugeSel.value = defaults.porRecurso[0].recurso;
+        const topInTeam = defaults.porRecurso.find((r) => recursos.indexOf(r.recurso) !== -1);
+        if (!gaugeValueRestored && topInTeam) gaugeSel.value = topInTeam.recurso;
       }
     }
   }
 
   function readCapFilters() {
+    // Nothing ticked = "Todos los recursos" = the whole Capacidad team
+    // (_capTeam), not every person in the feed -- so KPIs, charts and cards
+    // all count the same people the filter offers.
+    const selected = readSelectedRecursos();
     return {
       from: document.getElementById('filter-cap-desde').value,
       to: document.getElementById('filter-cap-hasta').value,
-      recursos: readSelectedRecursos(),
+      recursos: selected.length ? selected : _capTeam.slice(),
       cliente: document.getElementById('filter-cap-cliente').value,
       proyecto: document.getElementById('filter-cap-proyecto').value
     };
@@ -703,10 +714,6 @@
     opts = opts || {};
     _capAllTickets = tickets;
     _capExtraRows = Array.isArray(extraRows) ? extraRows : [];
-    if (Object.prototype.hasOwnProperty.call(opts, 'failedSources')) {
-      _capFailedSources = opts.failedSources || [];
-      _capExtraNoticeDismissed = false;
-    }
     if (opts.repopulateFilters !== false) populateCapFilters(tickets, _capExtraRows);
 
     const filters = readCapFilters();
@@ -716,7 +723,6 @@
     renderCapCharts(result, filters);
     renderCapTable(result, filters);
     renderCapGauges(tickets);
-    renderCapExtraSourcesNotice();
   }
 
   function rerenderCapWithCurrentFilters() {
@@ -743,34 +749,6 @@
     // untouched — "Limpiar" only resets the main filter row, per spec v3's
     // gauge filters being fully independent.
     rerenderCapWithCurrentFilters();
-  }
-
-  // Small non-blocking notice when one or more extra sources failed to load
-  // (Degradation rule in capacidad-multi-fuente-odata.md) -- never blocks
-  // rendering, just flags that Capacidad's totals may be incomplete for
-  // those sources. Dismissible for the current dataset; reappears on the
-  // next "Actualizar Datos" if it fails again (see renderCapacidad above).
-  function renderCapExtraSourcesNotice() {
-    const el = document.getElementById('cap-extra-sources-notice');
-    const textEl = document.getElementById('cap-extra-sources-notice-text');
-    if (!el || !textEl) return;
-    if (!_capFailedSources.length || _capExtraNoticeDismissed) { el.hidden = true; return; }
-    textEl.textContent = 'No se pudieron cargar algunas fuentes de horas (' + _capFailedSources.join(', ') +
-      '). Los totales de Capacidad pueden estar incompletos para esos recursos.';
-    el.hidden = false;
-  }
-
-  let _capExtraNoticeWired = false;
-  function wireCapExtraSourcesNotice() {
-    if (_capExtraNoticeWired) return;
-    _capExtraNoticeWired = true;
-    const closeBtn = document.getElementById('cap-extra-sources-notice-close');
-    if (!closeBtn) return;
-    closeBtn.addEventListener('click', () => {
-      _capExtraNoticeDismissed = true;
-      const el = document.getElementById('cap-extra-sources-notice');
-      if (el) el.hidden = true;
-    });
   }
 
   /* ==================== Tickets Activos ====================
@@ -1612,7 +1590,6 @@
     onCapClienteChange: onCapClienteChange,
     onCapGaugeFiltersChange: onCapGaugeFiltersChange,
     wireDrilldownModal: wireDrilldownModal,
-    wireCapExtraSourcesNotice: wireCapExtraSourcesNotice,
     renderActivos: renderActivos,
     rerenderActivosWithCurrentFilters: rerenderActivosWithCurrentFilters,
     clearActivosFilters: clearActivosFilters,
