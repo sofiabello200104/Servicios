@@ -174,6 +174,23 @@
     }).join(' ');
   }
 
+  // initialsFromName("Marlon Hernando Serna Loaiza") -> "MS": primer nombre +
+  // PRIMER apellido, siguiendo la convención colombiana de los recursos de
+  // este feed (nombre1 nombre2 apellido1 apellido2), no el último apellido.
+  // Por eso 4+ palabras toman words[0] + words[2].
+  //   4+ palabras -> words[0] + words[2]  ("Laura Sofia Bello Cabrera" -> LB)
+  //   2-3 palabras -> words[0] + words[1] (1 nombre + apellidos)
+  //   1 palabra    -> sus dos primeras letras
+  //   vacío        -> "?" (placeholders como "Sin recurso" igual dibujan algo)
+  // Preserva acentos (mayúsculas locale-aware), igual que toTitleCase arriba.
+  function initialsFromName(raw) {
+    var words = String(raw || '').trim().split(/\s+/).filter(Boolean);
+    if (!words.length) return '?';
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    var surname = words.length >= 4 ? words[2] : words[1];
+    return (words[0].charAt(0) + surname.charAt(0)).toUpperCase();
+  }
+
   function normalizeRecurso(raw) {
     var s = fillOrDefault(raw);
     return s === 'Sin dato' ? s : toTitleCase(s);
@@ -1359,6 +1376,7 @@
     parseFecha: parseFecha,
     monthKey: monthKey,
     toTitleCase: toTitleCase,
+    initialsFromName: initialsFromName,
     normalizeRecurso: normalizeRecurso,
     groupPrioridad: groupPrioridad,
     normalizeTickets: normalizeTickets,

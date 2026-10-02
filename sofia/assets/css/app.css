@@ -79,6 +79,26 @@ input[type="date"].filter-select{min-width:150px;}
 /* ===== Estado (semáforo) badge — table cell + KPI chip, color set inline from color_badge ===== */
 .cap-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap;}
 
+/* ===== Detalle por recurso: cuadrícula de tarjetas (reemplaza la tabla) =====
+   auto-fill + minmax: 1 columna en móvil, y tantas como quepan a partir de
+   260px, sin media queries. Los colores de avatar/barra/badge se inyectan
+   inline desde colorBadge (mapper.js UMBRALES), igual que ya hacía la celda
+   Estado de la tabla, para no duplicar acá la escala del semáforo. */
+.cap-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;}
+.cap-card{border:1px solid #E2E8F0;border-radius:12px;padding:16px;background:#fff;display:flex;flex-direction:column;gap:12px;}
+.cap-card-head{display:flex;align-items:center;gap:10px;min-width:0;}
+.cap-avatar{flex:0 0 auto;width:38px;height:38px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;letter-spacing:.3px;}
+.cap-card-name{font-size:13px;font-weight:700;color:#1E293B;line-height:1.25;overflow-wrap:anywhere;}
+.cap-progress-row{display:flex;align-items:center;gap:8px;}
+.cap-progress{flex:1 1 auto;height:8px;border-radius:999px;background:#F1F5F9;overflow:hidden;}
+.cap-progress-fill{height:100%;border-radius:999px;transition:width .3s ease;}
+.cap-progress-pct{flex:0 0 auto;font-size:12px;font-weight:700;color:#1E293B;font-variant-numeric:tabular-nums;}
+.cap-card-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:11px;}
+.cap-card-stat dt{color:#64748B;}
+.cap-card-stat dd{font-weight:700;color:#334155;font-variant-numeric:tabular-nums;}
+.cap-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;}
+.cap-cards-empty{grid-column:1/-1;text-align:center;color:#94A3B8;padding:20px;font-size:12px;}
+
 /* ===== Table: Últimos tickets ===== */
 .tickets-table{width:100%;border-collapse:collapse;font-size:12px;}
 .tickets-table thead tr{border-bottom:2px solid #E2E8F0;}

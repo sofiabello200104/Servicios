@@ -258,15 +258,25 @@
           </div>
         </div>
 
-        <!-- Tabla: Detalle por recurso -->
+        <!-- Detalle por recurso: cuadrícula de tarjetas (reemplaza la tabla).
+             El <select> conserva el ordenamiento que antes daban las
+             cabeceras clicables de la tabla. -->
         <div class="card p-5 card-loading-target">
-          <h3 class="text-sm font-bold text-slate-800 mb-3">Detalle por recurso</h3>
-          <div class="overflow-x-auto">
-            <table class="tickets-table">
-              <thead id="table-capacidad-head"></thead>
-              <tbody id="table-capacidad-body"></tbody>
-            </table>
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h3 class="text-sm font-bold text-slate-800">Detalle por recurso</h3>
+            <div class="flex items-center gap-2">
+              <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide" for="cap-cards-sort">Ordenar por</label>
+              <select id="cap-cards-sort" class="filter-select">
+                <option value="pct-desc">% Uso (mayor a menor)</option>
+                <option value="pct-asc">% Uso (menor a mayor)</option>
+                <option value="recurso-asc">Recurso (A-Z)</option>
+                <option value="recurso-desc">Recurso (Z-A)</option>
+                <option value="reservadas-desc">Reservadas (mayor a menor)</option>
+                <option value="disponibles-desc">Disponibles (mayor a menor)</option>
+              </select>
+            </div>
           </div>
+          <div id="cap-cards-grid" class="cap-cards-grid"></div>
         </div>
 
         <!-- Drill-down "Analizar": un único modal, reutilizado y re-llenado

@@ -506,16 +506,6 @@
     renderCapGauges(_capAllTickets);
   }
 
-  const CAP_TABLE_COLUMNS = [
-    { key: 'recurso', label: 'Recurso' },
-    { key: 'capacidad', label: 'Capacidad (h)' },
-    { key: 'reservadas', label: 'Reservadas (h)' },
-    { key: 'disponibles', label: 'Disponibles (h)' },
-    { key: 'pct', label: '% Uso' },
-    { key: 'estado', label: 'Estado' },
-    { key: 'analizar', label: 'ID', sortable: false }
-  ];
-
   function sortCapRows(rows, key, dir) {
     return rows.slice().sort((a, b) => {
       let va = a[key], vb = b[key];
@@ -527,22 +517,20 @@
     });
   }
 
-  function renderCapTableHead() {
-    const thead = document.getElementById('table-capacidad-head');
-    thead.innerHTML = '<tr>' + CAP_TABLE_COLUMNS.map((c) => {
-      if (c.sortable === false) return '<th>' + c.label + '</th>';
-      const active = _capSortState.key === c.key;
-      const arrow = active ? (_capSortState.dir === 'asc' ? ' ▲' : ' ▼') : '';
-      return '<th data-sort-key="' + c.key + '" style="cursor:pointer;">' + c.label + arrow + '</th>';
-    }).join('') + '</tr>';
-    thead.querySelectorAll('th[data-sort-key]').forEach((th) => {
-      th.addEventListener('click', () => {
-        const key = th.dataset.sortKey;
-        if (_capSortState.key === key) _capSortState.dir = _capSortState.dir === 'asc' ? 'desc' : 'asc';
-        else { _capSortState.key = key; _capSortState.dir = (key === 'recurso' || key === 'estado') ? 'asc' : 'desc'; }
-        renderCapTableBody();
-        renderCapTableHead();
-      });
+  // The card grid replaced the sortable table head: this <select> carries the
+  // same _capSortState the header arrows used to drive, so sorting survives
+  // the redesign. Wired once -- the grid is re-rendered on change.
+  let _capSortWired = false;
+  function wireCapCardsSort() {
+    if (_capSortWired) return;
+    const sel = document.getElementById('cap-cards-sort');
+    if (!sel) return;
+    _capSortWired = true;
+    sel.addEventListener('change', () => {
+      const [key, dir] = sel.value.split('-');
+      _capSortState.key = key;
+      _capSortState.dir = dir;
+      renderCapCards();
     });
   }
 
@@ -641,26 +629,53 @@
     });
   }
 
-  function renderCapTableBody() {
-    const tbody = document.getElementById('table-capacidad-body');
+  // One resource card: avatar with initials, name, % Uso progress bar, the
+  // three hour figures and the semaphore badge. Avatar and bar fill reuse
+  // r.color (mapper.js UMBRALES' colorBadge), the SAME value the badge already
+  // used -- the colour scale is not duplicated here.
+  // The bar is capped at 100% width so a Saturado resource (>100%) doesn't
+  // overflow its track, while the numeric label still shows the real figure.
+  function capCardHtml(r) {
+    const pct = Number(r.pct) || 0;
+    const barWidth = Math.min(Math.max(pct, 0), 100);
+    return '' +
+      '<article class="cap-card">' +
+        '<div class="cap-card-head">' +
+          '<div class="cap-avatar" style="background:' + escapeHtml(r.color) + ';" aria-hidden="true">' +
+            escapeHtml(M.initialsFromName(r.recurso)) +
+          '</div>' +
+          '<div class="cap-card-name">' + escapeHtml(r.recurso) + '</div>' +
+        '</div>' +
+        '<div class="cap-progress-row">' +
+          '<div class="cap-progress" role="progressbar" aria-label="% Uso de ' + escapeHtml(r.recurso) + '"' +
+            ' aria-valuenow="' + formatPct(r.pct) + '" aria-valuemin="0" aria-valuemax="100">' +
+            '<div class="cap-progress-fill" style="width:' + barWidth + '%;background:' + escapeHtml(r.color) + ';"></div>' +
+          '</div>' +
+          '<span class="cap-progress-pct">' + formatPct(r.pct) + '%</span>' +
+        '</div>' +
+        '<dl class="cap-card-stats">' +
+          '<div class="cap-card-stat"><dt>Capacidad</dt><dd>' + formatHoras(r.capacidad) + ' h</dd></div>' +
+          '<div class="cap-card-stat"><dt>Reservadas</dt><dd>' + formatHoras(r.reservadas) + ' h</dd></div>' +
+          '<div class="cap-card-stat"><dt>Disponibles</dt><dd>' + formatHoras(r.disponibles) + ' h</dd></div>' +
+        '</dl>' +
+        '<div class="cap-card-foot">' +
+          '<span class="cap-badge ' + escapeHtml(r.badgeClass) + '">' + escapeHtml(r.estado) + '</span>' +
+          '<button type="button" class="cap-analizar-btn" data-recurso="' + escapeHtml(r.recurso) + '">Analizar</button>' +
+        '</div>' +
+      '</article>';
+  }
+
+  function renderCapCards() {
+    const grid = document.getElementById('cap-cards-grid');
+    if (!grid) return;
     const sorted = sortCapRows(_capLastPorRecurso, _capSortState.key, _capSortState.dir);
     if (!sorted.length) {
-      tbody.innerHTML = '<tr><td colspan="' + CAP_TABLE_COLUMNS.length + '" style="text-align:center;color:#94A3B8;padding:20px;">Sin recursos para los filtros seleccionados.</td></tr>';
+      grid.innerHTML = '<p class="cap-cards-empty">Sin recursos para los filtros seleccionados.</p>';
       return;
     }
-    tbody.innerHTML = sorted.map((r) => (
-      '<tr class="table-row">' +
-      '<td>' + escapeHtml(r.recurso) + '</td>' +
-      '<td>' + formatHoras(r.capacidad) + '</td>' +
-      '<td>' + formatHoras(r.reservadas) + '</td>' +
-      '<td>' + formatHoras(r.disponibles) + '</td>' +
-      '<td>' + formatPct(r.pct) + '%</td>' +
-      '<td><span class="cap-badge ' + escapeHtml(r.badgeClass) + '">' + escapeHtml(r.estado) + '</span></td>' +
-      '<td><button type="button" class="cap-analizar-btn" data-recurso="' + escapeHtml(r.recurso) + '">Analizar</button></td>' +
-      '</tr>'
-    )).join('');
+    grid.innerHTML = sorted.map(capCardHtml).join('');
 
-    tbody.querySelectorAll('.cap-analizar-btn').forEach((btn) => {
+    grid.querySelectorAll('.cap-analizar-btn').forEach((btn) => {
       btn.addEventListener('click', () => openDrilldownModal(btn.dataset.recurso, btn));
     });
   }
@@ -671,8 +686,8 @@
   function renderCapTable(result, filters) {
     _capLastPorRecurso = result.porRecurso;
     _capLastFilters = filters;
-    renderCapTableHead();
-    renderCapTableBody();
+    wireCapCardsSort();
+    renderCapCards();
   }
 
   // extraRows: the 4 extra OData sources' rows (capacidad-multi-fuente-odata.md),

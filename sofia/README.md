@@ -281,9 +281,37 @@ un algoritmo puro — sin API ni dependencia externa — cacheado por año
 tacómetro) hereda esto automáticamente, sin tocar ningún otro punto de
 cómputo. No hay calendario de festivos de otros países.
 
+### Detalle por recurso: cuadrícula de tarjetas
+
+Desde la versión 2 esta sección NO es una tabla: es una cuadrícula responsiva
+de tarjetas (`#cap-cards-grid`, CSS `.cap-cards-grid` con
+`auto-fill / minmax(260px, 1fr)` — 1 columna en móvil, N según ancho, sin
+media queries). Cada tarjeta muestra:
+
+- **Avatar** circular con las iniciales (`initialsFromName`, mapper.js):
+  primer nombre + **primer** apellido según la convención colombiana
+  (`nombre1 nombre2 apellido1 apellido2` → `MS` para "Marlon Hernando Serna
+  Loaiza"), NO el último apellido.
+- **Nombre completo** destacado.
+- **Barra de progreso** horizontal con el `% Uso`. El ancho se recorta a 100%
+  para que un recurso **Saturado** (>100%) no desborde la barra, pero la
+  etiqueta numérica sigue mostrando el valor real.
+- **Capacidad / Reservadas / Disponibles** en horas.
+- **Badge de estado** semaforizado.
+
+El avatar y el relleno de la barra se pintan con `r.color`, el MISMO
+`colorBadge` de `UMBRALES` (mapper.js) que ya usaba el badge — la escala del
+semáforo no se duplica en `render.js`. Son **cuatro** estados, no tres:
+`Alta Disponibilidad` (azul), `Óptimo` (verde), `Límite` (ámbar) y
+`Saturado` (rojo, >100%).
+
+El ordenamiento que antes daban las cabeceras clicables de la tabla ahora
+vive en el `<select>` **"Ordenar por"** (`#cap-cards-sort`), que escribe el
+mismo `_capSortState`.
+
 ### Drill-down "Detalle por Recurso" (Power BI style, spec v4: modal)
 
-Cada fila de recurso termina en una columna **"ID"** con un botón
+Cada **tarjeta** de recurso termina con un botón
 **"Analizar"** (`tipo: boton_analizar_tickets`) — ÚNICO mecanismo de
 drill-down (spec v3 probó primero un acordeón inline por click-en-la-fila;
 spec v4 lo reemplazó por este botón + modal explícitos, sin fila-click, sin

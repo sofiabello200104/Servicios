@@ -79,6 +79,29 @@ test('toTitleCase merges duplicate-cased names into the same value', () => {
   assert.equal(b, c);
 });
 
+// Expected values below are the ones the user supplied in the redesign spec
+// (nombre1 nombre2 apellido1 apellido2 -> nombre1 + apellido1).
+test('initialsFromName takes nombre1 + apellido1 for four-word Colombian names', () => {
+  assert.equal(mapper.initialsFromName('Marlon Hernando Serna Loaiza'), 'MS');
+  assert.equal(mapper.initialsFromName('Lina María Peralta Montealegre'), 'LP');
+  assert.equal(mapper.initialsFromName('Anyela Fabriny Villegas Lozano'), 'AV');
+  assert.equal(mapper.initialsFromName('Laura Sofia Bello Cabrera'), 'LB');
+  assert.equal(mapper.initialsFromName('paola andrea macias rojas'), 'PM');
+});
+
+test('initialsFromName falls back to the second word for two- and three-word names', () => {
+  assert.equal(mapper.initialsFromName('Juan Pérez'), 'JP');
+  assert.equal(mapper.initialsFromName('Juan Pérez García'), 'JP');
+});
+
+test('initialsFromName degrades for one-word, empty and accented input instead of throwing', () => {
+  assert.equal(mapper.initialsFromName('Marlon'), 'MA');
+  assert.equal(mapper.initialsFromName('   '), '?');
+  assert.equal(mapper.initialsFromName(null), '?');
+  assert.equal(mapper.initialsFromName('Sin recurso'), 'SR');
+  assert.equal(mapper.initialsFromName('Ángela Lucía Ñuñez Soto'), 'ÁÑ'); // conserva la tilde
+});
+
 /* ==================== Priority grouping ==================== */
 
 test('groupPrioridad groups by leading number+word', () => {
