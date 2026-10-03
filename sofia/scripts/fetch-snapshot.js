@@ -28,13 +28,36 @@ function toRows(d) {
   return [];
 }
 
+// http/https en vez de fetch(): el fetch global (undici) corta a los 5 min
+// sin recibir cabeceras, y este servidor tarda más que eso en responder.
+function request(url) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url);
+    const mod = u.protocol === 'http:' ? require('http') : require('https');
+    const req = mod.request(u, { method: 'GET', headers: { Authorization: AUTH, Accept: 'application/json', 'Accept-Encoding': 'gzip' } }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('error', reject);
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode >= 300) return reject(new Error('HTTP ' + res.statusCode));
+        let buf = Buffer.concat(chunks);
+        try { if (res.headers['content-encoding'] === 'gzip') buf = zlib.gunzipSync(buf); resolve(JSON.parse(buf.toString('utf8'))); }
+        catch (e) { reject(new Error('Respuesta no válida: ' + e.message)); }
+      });
+    });
+    req.setTimeout(TIMEOUT_MS, () => req.destroy(new Error('tiempo de espera agotado (' + TIMEOUT_MS / 60000 + ' min)')));
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 async function get(entity, select) {
   let url = URL_BASE + '/' + encodeURIComponent(entity) + '?$format=json' + (select ? '&$select=' + encodeURIComponent(select) : '');
   const rows = [];
   for (let page = 0; url && page < 100; page++) {
-    const res = await fetch(url, { headers: { Authorization: AUTH, Accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT_MS) });
-    if (!res.ok) throw new Error(entity + ': HTTP ' + res.status);
-    const json = await res.json();
+    const t0 = Date.now();
+    let json;
+    try { json = await request(url); } catch (e) { throw new Error(entity + ': ' + e.message + ' tras ' + Math.round((Date.now() - t0) / 1000) + ' s'); }
     rows.push(...toRows(json));
     url = json['@odata.nextLink'] || json['odata.nextLink'] || null;
   }
