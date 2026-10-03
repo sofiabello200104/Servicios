@@ -209,3 +209,7 @@ input[type="date"].filter-select{min-width:150px;}
 .dash-seg{display:inline-flex;background:#F1F5F9;border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap;}
 .dash-seg button{padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;color:#475569;}
 .dash-seg button.active{background:#fff;color:#0369A1;box-shadow:0 1px 3px rgba(15,23,42,.12);}
+
+/* ===== Estado de carga inicial ===== */
+.loading-spinner{width:40px;height:40px;border-radius:999px;border:4px solid var(--brand-soft);border-top-color:var(--brand);animation:sofia-spin .9s linear infinite;}
+@keyframes sofia-spin{to{transform:rotate(360deg);}}

@@ -32,7 +32,13 @@
   let _hasData = false;
   // Whether the ticket empty-state (no data / OData error) should show when a
   // ticket-based view is active; Correspondencia temporarily overrides it.
-  let _emptyWanted = true;
+  let _emptyWanted = false;
+  // The page starts in the loading state (first OData load can take ~3 min).
+  let _loadingWanted = true;
+  function setLoadingVisible(on) {
+    const el = document.getElementById('loading-state');
+    if (el) el.style.display = on ? '' : 'none';
+  }
   // ISO timestamp of the live data currently on screen (fresh or snapshot);
   // used by the "No se pudo actualizar · datos del ..." label.
   let _shownUpdatedAt = null;
@@ -60,12 +66,15 @@
   function showEmptyState(message) {
     _hasData = false;
     _emptyWanted = true;
+    _loadingWanted = false;
+    setLoadingVisible(false);
     document.getElementById('empty-state').style.display = '';
     document.getElementById('views-root').style.display = 'none';
     const msgEl = document.getElementById('empty-state-error');
     if (msgEl) msgEl.textContent = message || '';
     // Correspondencia doesn't depend on tickets: keep it on screen.
     if (_currentView === 'correspondencia') {
+      setLoadingVisible(false);
       document.getElementById('empty-state').style.display = 'none';
       document.getElementById('views-root').style.display = '';
     }
@@ -74,6 +83,8 @@
   function showContent() {
     _hasData = true;
     _emptyWanted = false;
+    _loadingWanted = false;
+    setLoadingVisible(false);
     document.getElementById('empty-state').style.display = 'none';
     document.getElementById('views-root').style.display = '';
   }
@@ -139,7 +150,13 @@
     // Skeletons only when there is nothing on screen yet -- with saved data
     // showing, the cards stay readable while the slow refresh runs.
     const hadData = _hasData;
-    if (!hadData) setSkeletons(true);
+    if (!hadData) {
+      setSkeletons(true);
+      // Nothing on screen yet: show the loading card instead of the empty state.
+      _loadingWanted = true; _emptyWanted = false;
+      document.getElementById('empty-state').style.display = 'none';
+      if (_currentView !== 'correspondencia') setLoadingVisible(true);
+    }
     try {
       // Config (served locally from data/config.json, never touches the
       // upstream OData host) and Tickets are fetched concurrently. The 4
@@ -230,6 +247,7 @@
       const showRoot = _hasData || view === 'correspondencia';
       rootEl.style.display = showRoot ? '' : 'none';
       emptyEl.style.display = showRoot ? 'none' : (_emptyWanted ? '' : 'none');
+      setLoadingVisible(!showRoot && _loadingWanted);
     }
     if (view === 'correspondencia') window.SOFIA_CORRESPONDENCIA.show();
 

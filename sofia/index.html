@@ -98,7 +98,15 @@
     <div class="p-4 lg:p-8 space-y-6 lg:space-y-8">
 
       <!-- ========================= EMPTY STATE ========================= -->
-      <section id="empty-state" class="card p-8 max-w-xl mx-auto text-center">
+      <section id="loading-state" class="card p-8 max-w-xl mx-auto text-center">
+        <div class="loading-spinner mx-auto mb-4" aria-hidden="true"></div>
+        <h2 class="text-lg font-bold text-slate-900">Cargando tickets…</h2>
+        <p class="text-sm text-slate-500 mt-2">
+          Consultando <strong>ID12086_Tickets_medidor</strong> en el servidor OData. La primera carga puede tardar
+          unos 3 minutos; las siguientes son inmediatas.
+        </p>
+      </section>
+      <section id="empty-state" class="card p-8 max-w-xl mx-auto text-center" style="display:none">
         <div class="icon-wrap mx-auto mb-4">
           <svg class="w-7 h-7" fill="none" stroke="#0369A1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
         </div>
