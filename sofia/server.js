@@ -422,9 +422,16 @@ function handleSnapshotGet(req, res) {
   if (!files[entity]) return sendJson(res, 400, { error: 'Entidad no válida.' });
   try {
     const dir = path.join(DATA_DIR, 'snapshot');
-    const data = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(dir, files[entity]))).toString('utf8'));
-    let updatedAt = null;
-    try { updatedAt = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')).updatedAt; } catch (e) { /* sin meta */ }
+    let data, updatedAt = null;
+    try {
+      data = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(dir, files[entity]))).toString('utf8'));
+      try { updatedAt = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')).updatedAt; } catch (e) { /* sin meta */ }
+    } catch (e) {
+      // Sin snapshot del workflow: copia del Power BI INDICADORES.pbix (solo tickets).
+      if (entity !== 'tickets') throw e;
+      data = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(DATA_DIR, 'pbix', 'tickets.json.gz'))).toString('utf8'));
+      updatedAt = data.updatedAt;
+    }
     sendJson(res, 200, Object.assign({}, data, { updatedAt }));
   } catch (e) { sendJson(res, 404, { error: 'Aún no hay snapshot de datos.' }); }
 }

@@ -36,6 +36,7 @@
   // ISO timestamp of the live data currently on screen (fresh or snapshot);
   // used by the "No se pudo actualizar · datos del ..." label.
   let _shownUpdatedAt = null;
+  let _shownOrigen = null; // 'pbix' when the data on screen is the Power BI copy
   let _currentView = 'resumen';
   let _capacidadStale = true;
   let _activosStale = true;
@@ -141,9 +142,17 @@
       if (!res.ok) return false;
       const snap = await res.json();
       if (!snap || !Array.isArray(snap.rows) || !snap.rows.length) return false;
-      renderLoadedData(snap.rows, snap.extraRows, snap.failedSources);
+      // JSON turns Dates into strings: restore them for the extra-source rows.
+      const extras = (snap.extraRows || []).map((r) => Object.assign({}, r, { fecha: r.fecha ? new Date(r.fecha) : null }));
+      renderLoadedData(snap.rows, extras, snap.failedSources);
       _shownUpdatedAt = snap.updatedAt || null;
-      updateLastUpdatedText(label + ' ' + (snap.updatedAt ? window.SOFIA_STORE.formatUpdatedAt(snap.updatedAt) : ''));
+      _shownOrigen = snap.origen || 'snapshot';
+      if (snap.origen === 'pbix') {
+        // Copia del Power BI: el .pbix solo trae los tickets del 01/10; el resto es la muestra (hasta 10/09).
+        updateLastUpdatedText('Copia del Power BI INDICADORES (corte 01/10/2026) · sin conexión OData');
+      } else {
+        updateLastUpdatedText(label + ' ' + (snap.updatedAt ? window.SOFIA_STORE.formatUpdatedAt(snap.updatedAt) : ''));
+      }
       return true;
     } catch (e) { return false; }
   }
@@ -184,7 +193,9 @@
       // Keep whatever is on screen (or fall back to the saved snapshot)
       // instead of blanking the dashboard over a slow/failed refresh.
       if (hadData || await showSavedSnapshot('') || await showServerSnapshot('')) {
-        updateLastUpdatedText('No se pudo actualizar · datos del ' + window.SOFIA_STORE.formatUpdatedAt(_shownUpdatedAt));
+        updateLastUpdatedText(_shownOrigen === 'pbix'
+          ? 'Copia del Power BI INDICADORES (corte 01/10/2026) · el servidor OData no respondió'
+          : 'No se pudo actualizar · datos del ' + window.SOFIA_STORE.formatUpdatedAt(_shownUpdatedAt));
       } else {
         showEmptyState('No se pudieron cargar los datos: ' + err.message);
       }
