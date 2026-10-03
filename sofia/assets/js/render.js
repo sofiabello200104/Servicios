@@ -1021,8 +1021,8 @@
       html = '<strong>Con el rango actual</strong> quedan fuera <strong>' + formatEntero(f.excluidosPosterior) + '</strong> tickets con soporte programado después del ' +
         escapeHtml(isoToDMY(f.hasta)) + escapeHtml(desglose(f.excluidosPorAccion)) + '. Amplíe la fecha «hasta» para incluirlos.';
     } else if (f && f.futuros > 0) {
-      html = '<strong>El total actual incluye</strong> <strong>' + formatEntero(f.futuros) + '</strong> tickets con soporte programado después de hoy (' +
-        escapeHtml(isoToDMY(f.hoy)) + ')' + escapeHtml(desglose(f.futurosPorAccion)) + '.';
+      html = '<strong>El total actual incluye</strong> <strong>' + formatEntero(f.futuros) + '</strong> tickets con soporte programado después de hoy, ' +
+        escapeHtml(isoToDMY(f.hoy)) + escapeHtml(desglose(f.futurosPorAccion)) + '.';
     }
     el.innerHTML = html;
     el.hidden = !html;
