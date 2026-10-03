@@ -73,6 +73,19 @@
     document.getElementById('views-root').style.display = 'none';
     const msgEl = document.getElementById('empty-state-error');
     if (msgEl) msgEl.textContent = message || '';
+    // Con OData configurado y un error de conexión (504, red...), el problema
+    // no es la configuración: se dice así y se ofrece reintentar.
+    const conexion = !!message && !/no configurado|401/i.test(message);
+    const titleEl = document.getElementById('empty-state-title');
+    const textEl = document.getElementById('empty-state-text');
+    const retry = document.getElementById('btn-reintentar');
+    const param = document.getElementById('btn-abrir-parametrizacion');
+    if (titleEl) titleEl.textContent = conexion ? 'El servidor OData no respondió' : 'El dashboard necesita configuración OData';
+    if (textEl) textEl.innerHTML = conexion
+      ? 'La configuración está bien, pero el servidor de datos (<strong>ID12086_Tickets_medidor</strong>) no contestó a tiempo. Suele ser temporal: reintenta en unos minutos o explora la interfaz con datos de ejemplo.'
+      : 'Configura el endpoint OData en Parametrización para cargar los tickets de <strong>ID12086_Tickets_medidor</strong>, o explora la interfaz con datos de ejemplo mientras tanto.';
+    if (retry) retry.hidden = !conexion;
+    if (param) param.className = conexion ? 'btn-secondary' : 'btn-primary';
     // Correspondencia doesn't depend on tickets: keep it on screen.
     if (_currentView === 'correspondencia') {
       setLoadingVisible(false);
@@ -305,6 +318,9 @@
 
     const btnActualizar = document.getElementById('btn-actualizar-datos');
     if (btnActualizar) btnActualizar.addEventListener('click', actualizarDatos);
+
+    const btnRetry = document.getElementById('btn-reintentar');
+    if (btnRetry) btnRetry.addEventListener('click', () => actualizarDatos());
 
     const btnSample = document.getElementById('btn-cargar-sample');
     if (btnSample) btnSample.addEventListener('click', cargarDatosEjemplo);

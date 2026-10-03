@@ -110,13 +110,14 @@
         <div class="icon-wrap mx-auto mb-4">
           <svg class="w-7 h-7" fill="none" stroke="#0369A1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
         </div>
-        <h2 class="text-lg font-bold text-slate-900">El dashboard necesita configuración OData</h2>
-        <p class="text-sm text-slate-500 mt-2">
+        <h2 id="empty-state-title" class="text-lg font-bold text-slate-900">El dashboard necesita configuración OData</h2>
+        <p id="empty-state-text" class="text-sm text-slate-500 mt-2">
           Configura el endpoint OData en Parametrización para cargar los tickets de <strong>ID12086_Tickets_medidor</strong>,
           o explora la interfaz con datos de ejemplo mientras tanto.
         </p>
         <p id="empty-state-error" class="text-sm text-rose-600 mt-2"></p>
         <div class="flex items-center justify-center gap-3 mt-5 flex-wrap">
+          <button id="btn-reintentar" class="btn-primary" hidden>Reintentar</button>
           <button id="btn-abrir-parametrizacion" class="btn-primary">Abrir parametrización</button>
           <button id="btn-cargar-sample" class="btn-secondary">Cargar datos de ejemplo</button>
         </div>
