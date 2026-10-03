@@ -1347,7 +1347,12 @@
       if (present.has(RECURSO_OTRO)) recursoOptions.push(RECURSO_OTRO);
       if (present.has('Sin recurso')) recursoOptions.push('Sin recurso');
     } else {
-      recursoOptions = Array.from(new Set(universe.map(function (t) { return recursoDeTicket.get(t); }))).sort();
+      // Sin equipo fijo (Segundo Nivel): solo quien tiene requerimientos
+      // activos en las acciones de la vista (opts.acciones).
+      var conAcciones = accionesPermitidas
+        ? universe.filter(function (t) { return accionesPermitidas.indexOf(t.accionNorm) !== -1; })
+        : universe;
+      recursoOptions = Array.from(new Set(conAcciones.map(function (t) { return recursoDeTicket.get(t); }))).sort();
     }
 
     var creacionFrom = filters.fechaCreacionFrom ? asUTCDate(filters.fechaCreacionFrom) : null;

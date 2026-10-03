@@ -1705,3 +1705,13 @@ test('buildActivos for Segundo Nivel (opts.acciones = SEGUNDO_NIVEL_ACCIONES): r
   const picked = mapper.buildActivos(tickets, { acciones: ['ACTUALIZAR VERSION'] }, opts);
   assert.deepEqual(picked.rows.map((x) => x.id), [2]);
 });
+
+test('buildActivos sin equipo (Segundo Nivel): recursoOptions solo incluye recursos con tickets en las acciones de la vista', () => {
+  const rows = [
+    { ID: 1, Estado: 1, Accion: 'REVISION CALIDAD', Recurso_Accion: 'Ana Ruiz', Fecha_Soporte_Inicial: '2026-09-01' },
+    { ID: 2, Estado: 1, Accion: 'REALIZAR', Recurso_Accion: 'Pedro Gomez', Fecha_Soporte_Inicial: '2026-09-01' },
+    { ID: 3, Estado: 1, Accion: 'ACTUALIZA VERSION', Recurso_Accion: 'Luis Diaz', Fecha_Soporte_Inicial: '2026-09-01' }
+  ];
+  const r = mapper.buildActivos(mapper.normalizeTickets(rows), {}, { acciones: mapper.SEGUNDO_NIVEL_ACCIONES });
+  assert.deepEqual(r.recursoOptions, ['Ana Ruiz', 'Luis Diaz']);
+});
