@@ -191,3 +191,14 @@ input[type="date"].filter-select{min-width:150px;}
   .chart-box-legend{height:380px;}
   .filter-select{min-width:0;width:100%;}
 }
+
+/* ===== Correspondencia Recibida ===== */
+.cor-kpi{border-top:3px solid var(--brand);}
+.cor-chart-card{display:flex;flex-direction:column;height:400px;}
+.cor-chart-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding-right:4px;}
+.cor-chart-scroll::-webkit-scrollbar{width:6px;}
+.cor-chart-scroll::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:999px;}
+.cor-avatar{flex:0 0 auto;width:28px;height:28px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;}
+.cor-pill{display:inline-block;padding:3px 10px;border-radius:999px;background:var(--brand-soft);color:var(--brand-deep);font-size:11px;font-weight:600;white-space:nowrap;}
+.cor-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--brand-soft);color:var(--brand-deep);font-size:12px;border:1px solid #BAE6FD;cursor:pointer;}
+.cor-chip:hover{background:#BAE6FD;}

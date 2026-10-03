@@ -388,57 +388,99 @@
 
       </div>
 
-      <!-- ========================= SEGUNDO NIVEL DE ATENCIÓN ========================= -->
       <!-- ========================= CORRESPONDENCIA RECIBIDA ========================= -->
       <div id="correspondencia-content" class="view">
-        <div id="cor-banner" class="card p-4 mb-4 text-sm text-red-600" hidden></div>
+        <div id="cor-banner" class="card p-4 mb-4 text-sm text-rose-600" hidden></div>
         <div id="cor-loading" class="card p-8 mb-4 text-sm text-slate-400 text-center" hidden>Cargando correspondencia…</div>
         <div id="cor-body" style="display:none">
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-            <!-- Columna izquierda -->
-            <div class="flex flex-col gap-4">
-              <div class="card p-5">
-                <h3 class="font-semibold text-slate-900">Recuento de Recurso_Accion</h3>
-                <p class="text-xs text-slate-500 mb-3">por Acción</p>
-                <div><canvas id="chart-cor-accion"></canvas></div>
-              </div>
-              <div class="card p-5">
-                <h3 class="font-semibold text-slate-900">Recuento de ID</h3>
-                <p class="text-xs text-slate-500 mb-3">por Recurso_Accion</p>
-                <div><canvas id="chart-cor-recurso"></canvas></div>
-              </div>
+
+          <!-- Filtro de fechas + selección activa -->
+          <div class="card p-4 mb-6 flex flex-wrap items-end gap-3">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="cor-desde">Fecha desde</label>
+              <input type="date" id="cor-desde" class="filter-select input-base" />
             </div>
-            <!-- Columna derecha -->
-            <div class="flex flex-col gap-4">
-              <div class="flex flex-wrap items-center gap-4">
-                <div class="card p-5" style="min-width:170px">
-                  <div class="text-sm text-slate-500">Total correspondencia</div>
-                  <div id="cor-total" class="text-3xl font-bold text-slate-900 mt-1">—</div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="cor-hasta">Fecha hasta</label>
+              <input type="date" id="cor-hasta" class="filter-select input-base" />
+            </div>
+            <div id="cor-chips" class="flex flex-wrap gap-2 items-center" hidden></div>
+            <span id="cor-updated" class="text-[11px] text-slate-400 ml-auto"></span>
+          </div>
+
+          <!-- KPIs -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div class="card p-4 cor-kpi">
+              <div class="text-[12px] font-semibold text-slate-500">Total correspondencia</div>
+              <div id="cor-total" class="text-3xl font-extrabold text-slate-900 kpi-num mt-2">—</div>
+            </div>
+            <div class="card p-4 cor-kpi">
+              <div class="text-[12px] font-semibold text-slate-500">Acción más frecuente</div>
+              <div id="cor-top-accion" class="text-[15px] font-bold text-slate-900 mt-2 leading-snug">—</div>
+              <div id="cor-top-accion-sub" class="text-[11px] text-slate-500 mt-1"></div>
+            </div>
+            <div class="card p-4 cor-kpi">
+              <div class="text-[12px] font-semibold text-slate-500">Clientes</div>
+              <div id="cor-clientes" class="text-3xl font-extrabold text-slate-900 kpi-num mt-2">—</div>
+            </div>
+            <div class="card p-4 cor-kpi">
+              <div class="text-[12px] font-semibold text-slate-500">Responsables</div>
+              <div id="cor-responsables" class="text-3xl font-extrabold text-slate-900 kpi-num mt-2">—</div>
+            </div>
+          </div>
+
+          <!-- Tres gráficas simétricas: clic en una barra filtra todo -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div class="card p-5 cor-chart-card">
+              <div class="flex items-start justify-between mb-3">
+                <div>
+                  <h3 class="text-sm font-bold text-slate-800">Correspondencia por Acción</h3>
+                  <p class="text-[11px] text-slate-400">Clic en una barra para filtrar</p>
                 </div>
-                <div class="flex flex-wrap items-end gap-2">
-                  <div>
-                    <label class="block text-[11px] text-slate-500 mb-1" for="cor-desde">Fecha</label>
-                    <input type="date" id="cor-desde" class="filter-select input-base" />
-                  </div>
-                  <div>
-                    <label class="block text-[11px] text-slate-500 mb-1" for="cor-hasta">&nbsp;</label>
-                    <input type="date" id="cor-hasta" class="filter-select input-base" />
-                  </div>
-                  <button type="button" id="cor-refresh" class="filter-select" style="cursor:pointer">Actualizar</button>
-                  <button type="button" id="cor-clear" class="filter-select" style="cursor:pointer" hidden>Quitar selección</button>
-                </div>
-                <span id="cor-updated" class="text-xs text-slate-400 w-full"></span>
               </div>
-              <div class="card p-5">
-                <h3 class="font-semibold text-slate-900">Recuento de ID</h3>
-                <p class="text-xs text-slate-500 mb-3">por Cliente</p>
-                <div><canvas id="chart-cor-cliente"></canvas></div>
+              <div class="cor-chart-scroll"><div><canvas id="chart-cor-accion"></canvas></div></div>
+            </div>
+            <div class="card p-5 cor-chart-card">
+              <div class="flex items-start justify-between mb-3">
+                <div>
+                  <h3 class="text-sm font-bold text-slate-800">Correspondencia por Responsable</h3>
+                  <p class="text-[11px] text-slate-400">Clic en una barra para filtrar</p>
+                </div>
+              </div>
+              <div class="cor-chart-scroll"><div><canvas id="chart-cor-recurso"></canvas></div></div>
+            </div>
+            <div class="card p-5 cor-chart-card">
+              <div class="flex items-start justify-between mb-3">
+                <div>
+                  <h3 class="text-sm font-bold text-slate-800">Correspondencia por Cliente</h3>
+                  <p class="text-[11px] text-slate-400">Clic en una barra para filtrar</p>
+                </div>
+              </div>
+              <div class="cor-chart-scroll"><div><canvas id="chart-cor-cliente"></canvas></div></div>
+            </div>
+          </div>
+
+          <!-- Detalle -->
+          <div class="card p-5 mb-6">
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Detalle de correspondencia</h3>
+            <div class="overflow-x-auto">
+              <table class="tickets-table">
+                <thead><tr><th>Responsable</th><th>Acción</th><th>Fecha</th><th>Cliente</th><th>ID</th></tr></thead>
+                <tbody id="cor-tbody"></tbody>
+              </table>
+            </div>
+            <div class="flex items-center justify-between mt-3 text-[12px] text-slate-500">
+              <span id="cor-page-label">Mostrando 0 de 0</span>
+              <div class="flex items-center gap-2">
+                <button type="button" id="cor-prev" class="btn-secondary" disabled>Anterior</button>
+                <button type="button" id="cor-next" class="btn-secondary" disabled>Siguiente</button>
               </div>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- ========================= SEGUNDO NIVEL DE ATENCIÓN ========================= -->
       <div id="segundo-nivel-content" class="view">
 
         <!-- Filtros -->
