@@ -16,7 +16,8 @@
     // to pair with the "segundo-nivel" entry below (orchestrator's naming
     // call -- see odd/tasks/primer-nivel-atencion.md's "Naming scope").
     activos: { title: 'Primer Nivel de Atención', crumb: 'Panel' },
-    'segundo-nivel': { title: 'Segundo Nivel de Atención', crumb: 'Panel' }
+    'segundo-nivel': { title: 'Segundo Nivel de Atención', crumb: 'Panel' },
+    correspondencia: { title: 'Correspondencia Recibida', crumb: 'Panel' }
   };
   const LAST_VIEW_KEY = 'sofia_last_view';
 
@@ -29,6 +30,9 @@
   let _currentExtraRows = [];
   let _extraSourcesFailed = [];
   let _hasData = false;
+  // Whether the ticket empty-state (no data / OData error) should show when a
+  // ticket-based view is active; Correspondencia temporarily overrides it.
+  let _emptyWanted = true;
   // ISO timestamp of the live data currently on screen (fresh or snapshot);
   // used by the "No se pudo actualizar · datos del ..." label.
   let _shownUpdatedAt = null;
@@ -55,14 +59,21 @@
 
   function showEmptyState(message) {
     _hasData = false;
+    _emptyWanted = true;
     document.getElementById('empty-state').style.display = '';
     document.getElementById('views-root').style.display = 'none';
     const msgEl = document.getElementById('empty-state-error');
     if (msgEl) msgEl.textContent = message || '';
+    // Correspondencia doesn't depend on tickets: keep it on screen.
+    if (_currentView === 'correspondencia') {
+      document.getElementById('empty-state').style.display = 'none';
+      document.getElementById('views-root').style.display = '';
+    }
   }
 
   function showContent() {
     _hasData = true;
+    _emptyWanted = false;
     document.getElementById('empty-state').style.display = 'none';
     document.getElementById('views-root').style.display = '';
   }
@@ -210,6 +221,17 @@
     if (crumbEl) crumbEl.textContent = meta.crumb;
 
     try { localStorage.setItem(LAST_VIEW_KEY, view); } catch (e) { /* ignore (private mode, etc.) */ }
+
+    // Correspondencia is independent of Tickets: show it even when the ticket
+    // load failed (empty-state), and restore the empty-state for other views.
+    const emptyEl = document.getElementById('empty-state');
+    const rootEl = document.getElementById('views-root');
+    if (emptyEl && rootEl) {
+      const showRoot = _hasData || view === 'correspondencia';
+      rootEl.style.display = showRoot ? '' : 'none';
+      emptyEl.style.display = showRoot ? 'none' : (_emptyWanted ? '' : 'none');
+    }
+    if (view === 'correspondencia') window.SOFIA_CORRESPONDENCIA.show();
 
     if (view === 'capacidad' && _hasData && _capacidadStale) {
       window.SOFIA_RENDER.renderCapacidad(_currentTickets, _currentExtraRows, { failedSources: _extraSourcesFailed });

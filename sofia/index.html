@@ -53,6 +53,10 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         Segundo Nivel de Atención
       </a>
+      <a data-view="correspondencia" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>
+        Correspondencia Recibida
+      </a>
       <!-- Más vistas se agregarán acá a medida que el dashboard crezca. -->
     </nav>
 
@@ -385,6 +389,56 @@
       </div>
 
       <!-- ========================= SEGUNDO NIVEL DE ATENCIÓN ========================= -->
+      <!-- ========================= CORRESPONDENCIA RECIBIDA ========================= -->
+      <div id="correspondencia-content" class="view">
+        <div id="cor-banner" class="card p-4 mb-4 text-sm text-red-600" hidden></div>
+        <div id="cor-loading" class="card p-8 mb-4 text-sm text-slate-400 text-center" hidden>Cargando correspondencia…</div>
+        <div id="cor-body" style="display:none">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+            <!-- Columna izquierda -->
+            <div class="flex flex-col gap-4">
+              <div class="card p-5">
+                <h3 class="font-semibold text-slate-900">Recuento de Recurso_Accion</h3>
+                <p class="text-xs text-slate-500 mb-3">por Acción</p>
+                <div><canvas id="chart-cor-accion"></canvas></div>
+              </div>
+              <div class="card p-5">
+                <h3 class="font-semibold text-slate-900">Recuento de ID</h3>
+                <p class="text-xs text-slate-500 mb-3">por Recurso_Accion</p>
+                <div><canvas id="chart-cor-recurso"></canvas></div>
+              </div>
+            </div>
+            <!-- Columna derecha -->
+            <div class="flex flex-col gap-4">
+              <div class="flex flex-wrap items-center gap-4">
+                <div class="card p-5" style="min-width:170px">
+                  <div class="text-sm text-slate-500">Total correspondencia</div>
+                  <div id="cor-total" class="text-3xl font-bold text-slate-900 mt-1">—</div>
+                </div>
+                <div class="flex flex-wrap items-end gap-2">
+                  <div>
+                    <label class="block text-[11px] text-slate-500 mb-1" for="cor-desde">Fecha</label>
+                    <input type="date" id="cor-desde" class="filter-select input-base" />
+                  </div>
+                  <div>
+                    <label class="block text-[11px] text-slate-500 mb-1" for="cor-hasta">&nbsp;</label>
+                    <input type="date" id="cor-hasta" class="filter-select input-base" />
+                  </div>
+                  <button type="button" id="cor-refresh" class="filter-select" style="cursor:pointer">Actualizar</button>
+                  <button type="button" id="cor-clear" class="filter-select" style="cursor:pointer" hidden>Quitar selección</button>
+                </div>
+                <span id="cor-updated" class="text-xs text-slate-400 w-full"></span>
+              </div>
+              <div class="card p-5">
+                <h3 class="font-semibold text-slate-900">Recuento de ID</h3>
+                <p class="text-xs text-slate-500 mb-3">por Cliente</p>
+                <div><canvas id="chart-cor-cliente"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div id="segundo-nivel-content" class="view">
 
         <!-- Filtros -->
@@ -515,6 +569,7 @@
 <script src="assets/js/data-sources.js"></script>
 <script src="assets/js/charts.js"></script>
 <script src="assets/js/render.js"></script>
+<script src="assets/js/correspondencia.js"></script>
 <script src="assets/js/parametrizacion.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
