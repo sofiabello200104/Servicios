@@ -1741,3 +1741,16 @@ test('buildDashboardCentral: cards match the modules; each acción dated by its 
   assert.equal(f.cards.activos, 2);
   assert.deepEqual(f.linea.series.map((s) => s.accion), ['REVISION CALIDAD', 'REVISION DEV', 'REVISION SOLUCION']);
 });
+
+test('buildDashboardCentral: real OData names Fecha_Inicial_Diagnostico_Calidad / Fecha_DEV_Inicial / Fecha_inicial_Revision_Solucion feed the Segundo Nivel lines', () => {
+  const base = { Estado: 2, Accion: 'CIERRE', Proceso: 'Mantenimiento', Recurso_Accion: 'Ana Ruiz', Fecha_Soporte_Inicial: '2026-09-01',
+    Fecha_DEV_Inicial: null, Fecha_Inicial_Diagnostico_Calidad: null, Fecha_inicial_Revision_Solucion: null };
+  const rows = [
+    Object.assign({}, base, { ID: 1, Fecha_Inicial_Diagnostico_Calidad: '2026-09-02T00:00:00' }),
+    Object.assign({}, base, { ID: 2, Fecha_Inicial_Diagnostico_Calidad: '2026-09-03T00:00:00', Fecha_DEV_Inicial: '2026-09-04T00:00:00' }),
+    Object.assign({}, base, { ID: 3, Fecha_inicial_Revision_Solucion: '2026-09-05T00:00:00' })
+  ];
+  const d = mapper.buildDashboardCentral(mapper.normalizeTickets(rows), { now: '2026-09-10', nivel: 'segundo' });
+  assert.deepEqual(d.linea.series.map((s) => [s.accion, s.disponible, s.total]),
+    [['REVISION CALIDAD', true, 2], ['REVISION DEV', true, 1], ['REVISION SOLUCION', true, 1]]);
+});
