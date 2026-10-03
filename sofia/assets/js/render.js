@@ -801,66 +801,37 @@
     return s;
   }
 
-  // Tickets Abiertos = every open ticket created inside the Fecha de
-  // creación range (plus Recurso/Requerimiento filters). "Abiertos
-  // Servicios" was removed (2026-10-02).
+  // Tickets Activos = every active ticket created inside the Fecha de
+  // creación range (plus Recurso/Requerimiento filters), any acción;
+  // Servicios / Calidad = its two acción buckets.
   function renderActivosKpis(result) {
     const cards = [
-      activoKpiCard('Tickets Abiertos', result.kpis.total, '#1E293B'),
+      activoKpiCard('Tickets Activos', result.kpis.total, '#1E293B'),
+      activoKpiCard('Abiertos Servicios', result.kpis.servicios, '#2563EB'),
       activoKpiCard('Abiertos Calidad', result.kpis.calidad, '#7C3AED')
     ];
     document.getElementById('kpi-row-activos').innerHTML = cards.join('');
   }
 
-  /* -------- Line: tickets creados vs. Segundo Nivel (Calidad) por día -------- */
-
-  // Monotone interpolation: smooth, but never dips below 0 between two
-  // zero-ticket days (plain tension overshoots).
-  // Blue = created, orange = sent to Segundo Nivel: high-contrast pair so the
-  // two behaviours read apart at a glance.
-  const ACT_DIARIOS_COLORS = { creados: '#0284C7', segundoNivel: '#F97316' };
-
-  function renderActDiarios(filters) {
-    const d = M.buildTicketsDiarios(_actAllTickets, filters);
-    const labels = d.dias.map((iso) => { const p = iso.split('-'); return p[2] + '/' + p[1]; });
-    const datasets = [{
-      label: 'Tickets Creados por Día', data: d.creados,
-      borderColor: ACT_DIARIOS_COLORS.creados, backgroundColor: ACT_DIARIOS_COLORS.creados, pointRadius: 2, cubicInterpolationMode: 'monotone'
-    }];
-    if (d.hasFechaCalidad) {
-      datasets.push({
-        label: 'Tickets que pasan a Segundo Nivel de Atención por Día', data: d.segundoNivel,
-        borderColor: ACT_DIARIOS_COLORS.segundoNivel, backgroundColor: ACT_DIARIOS_COLORS.segundoNivel, pointRadius: 2, cubicInterpolationMode: 'monotone'
-      });
-    }
-    C.chartEmptyState('chart-act-diarios', d.dias.length === 0, 'Sin tickets para el rango de fechas seleccionado');
-    C.lineChart('chart-act-diarios', datasets, {
-      labels: labels,
-      legend: true,
-      xOpts: { ticks: { autoSkip: true, maxTicksLimit: 16, font: { size: 10 } } },
-      yOpts: { beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Tickets', color: '#94A3B8', font: { size: 11 } } },
-      tooltipOpts: { callbacks: { title: (items) => isoToDMY(d.dias[items[0].dataIndex]) } }
+  // Acción multi-select: only the 4 Primer Nivel acciones, names only.
+  // _actSelectedAcciones empty = all 4 (the default: every box checked).
+  // "AGENDAR ENTREGA FINAL" and the feed's "AGENDA ENTREGA FINAL" are one
+  // option, labelled with whichever spelling the data uses.
+  const ACT_ACCIONES_BASE = ['REALIZAR', 'CIERRE', 'ENTREGA FINAL', 'AGENDAR ENTREGA FINAL'];
+  function actAccionOptions(result) {
+    const present = result.porAccion.map((a) => a.label);
+    return ACT_ACCIONES_BASE.map((a) => {
+      if (a === 'AGENDAR ENTREGA FINAL') {
+        return present.indexOf('AGENDA ENTREGA FINAL') !== -1 && present.indexOf(a) === -1 ? 'AGENDA ENTREGA FINAL' : a;
+      }
+      return a;
     });
-    const note = document.getElementById('chart-act-diarios-note');
-    if (note) {
-      if (!d.periodo) { note.textContent = ''; return; }
-      const parts = [
-        'Periodo: ' + isoToDMY(d.periodo.from) + ' – ' + isoToDMY(d.periodo.to) + (filters.fechaCreacionFrom || filters.fechaCreacionTo ? '' : ' (últimos 30 días con datos)'),
-        'Creados: ' + formatEntero(d.totales.creados)
-      ];
-      if (d.hasFechaCalidad) parts.push('A Segundo Nivel: ' + formatEntero(d.totales.segundoNivel));
-      let text = parts.join(' · ') + '. Creados por Fecha Soporte Inicial; Segundo Nivel por Fecha Inicial Diagnostico Calidad. Toda la fuente ID12086_Tickets_medidor (cualquier estado y acción).';
-      if (!d.hasFechaCalidad) text += ' La plantilla OData no incluye la columna Fecha_Inicial_Diagnostico_Calidad: agréguela para ver la línea de Segundo Nivel.';
-      note.textContent = text;
-    }
   }
 
-  // Acción multi-select: lists the acciones present under the current
-  // filters (names only) and mirrors _actSelectedAcciones.
   function updateActAccionTriggerLabel() {
     const trigger = document.getElementById('filter-act-accion-trigger');
     if (!trigger) return;
-    if (!_actSelectedAcciones.length) trigger.textContent = 'Todas las acciones';
+    if (!_actSelectedAcciones.length) trigger.textContent = 'Todas (4)';
     else if (_actSelectedAcciones.length === 1) trigger.textContent = _actSelectedAcciones[0];
     else trigger.textContent = _actSelectedAcciones.length + ' seleccionadas';
   }
@@ -869,12 +840,13 @@
     const list = document.getElementById('filter-act-accion-list');
     if (!list) return;
     const selected = new Set(_actSelectedAcciones);
-    list.innerHTML = result.porAccion.map((a) => (
-      '<label class="multi-select-option"><input type="checkbox" class="act-accion-opt" value="' + escapeHtml(a.label) + '"' +
-      (selected.has(a.label) ? ' checked' : '') + ' /> ' + escapeHtml(a.label) + '</label>'
+    const all = !_actSelectedAcciones.length;
+    list.innerHTML = actAccionOptions(result).map((a) => (
+      '<label class="multi-select-option"><input type="checkbox" class="act-accion-opt" value="' + escapeHtml(a) + '"' +
+      (all || selected.has(a) ? ' checked' : '') + ' /> ' + escapeHtml(a) + '</label>'
     )).join('');
-    const all = document.getElementById('filter-act-accion-all');
-    if (all) all.checked = _actSelectedAcciones.length === 0;
+    const allBox = document.getElementById('filter-act-accion-all');
+    if (allBox) allBox.checked = all;
     updateActAccionTriggerLabel();
   }
 
@@ -898,14 +870,19 @@
         trigger.setAttribute('aria-expanded', 'false');
       }
     });
+    // "Todas" always means all 4 (unchecking it would leave nothing to show,
+    // so it just re-checks itself).
     allCheckbox.addEventListener('change', () => {
-      if (allCheckbox.checked) _actSelectedAcciones = [];
+      _actSelectedAcciones = [];
       _actTablePage = 1;
       rerenderActivosWithCurrentFilters();
     });
     list.addEventListener('change', (e) => {
       if (!e.target.classList.contains('act-accion-opt')) return;
-      _actSelectedAcciones = Array.from(list.querySelectorAll('.act-accion-opt:checked')).map((el) => el.value);
+      const boxes = Array.from(list.querySelectorAll('.act-accion-opt'));
+      const checked = boxes.filter((el) => el.checked).map((el) => el.value);
+      // All or none checked -> back to the default (all 4).
+      _actSelectedAcciones = (checked.length === 0 || checked.length === boxes.length) ? [] : checked;
       _actTablePage = 1;
       rerenderActivosWithCurrentFilters();
     });
@@ -1193,7 +1170,7 @@
     // recursoOptions over the whole active universe with no filters applied
     // -- exactly what the filter UI needs to decide whether to show itself
     // and what to list.
-    const defaults = M.buildActivos(tickets, {}, { equipo: M.CAP_CARD_RECURSOS });
+    const defaults = M.buildActivos(tickets, {}, { equipo: M.CAP_CARD_RECURSOS, acciones: M.ACTIVOS_SERVICIOS_ACCIONES });
     const wrap = document.getElementById('filter-act-requerimientos-wrap');
     if (wrap) wrap.hidden = !defaults.hasRequerimiento;
     if (defaults.hasRequerimiento) {
@@ -1292,55 +1269,41 @@
   // With an Acción selected (filter or bar click), the panel becomes a
   // summary of that acción's tickets grouped by assigned resource (count,
   // desc). Otherwise it keeps the single-resource detail.
+  // Summary of the tickets behind the current Acción selection (all 4 by
+  // default): grouped by assigned resource, or -- when a resource bar is
+  // selected -- that resource's tickets grouped by acción.
   function renderActAccionResumen(panel, result) {
     const rows = result.rows.filter((r) =>
-      _actSelectedAcciones.indexOf(r.accion) !== -1 && (!_actSelectedResource || r.recursoAccion === _actSelectedResource));
+      (!_actSelectedAcciones.length || _actSelectedAcciones.indexOf(r.accion) !== -1) &&
+      (!_actSelectedResource || r.recursoAccion === _actSelectedResource));
+    const key = _actSelectedResource ? 'accion' : 'recursoAccion';
     const counts = {};
-    rows.forEach((r) => { counts[r.recursoAccion] = (counts[r.recursoAccion] || 0) + 1; });
-    const grupos = Object.keys(counts).map((k) => ({ recurso: k, tickets: counts[k] }))
-      .sort((a, b) => (b.tickets - a.tickets) || a.recurso.localeCompare(b.recurso));
+    rows.forEach((r) => { counts[r[key]] = (counts[r[key]] || 0) + 1; });
+    const grupos = Object.keys(counts).map((k) => ({ label: k, tickets: counts[k] }))
+      .sort((a, b) => (b.tickets - a.tickets) || a.label.localeCompare(b.label));
+    const accionesTxt = _actSelectedAcciones.length ? _actSelectedAcciones.join(', ') : 'las 4 acciones';
     panel.innerHTML =
       '<div class="text-2xl font-extrabold text-slate-900 mb-3">' + formatEntero(rows.length) +
-      '<span class="text-xs text-slate-400 font-semibold ml-1">tickets en ' + escapeHtml(_actSelectedAcciones.join(', ')) + '</span></div>' +
+      '<span class="text-xs text-slate-400 font-semibold ml-1">tickets en ' + escapeHtml(accionesTxt) + '</span></div>' +
       (grupos.length
         ? '<table class="w-full text-[12px]"><thead><tr class="text-left text-slate-500">' +
-            '<th class="py-1 font-semibold">Recurso asignado</th><th class="py-1 font-semibold text-right">Tickets</th></tr></thead><tbody>' +
-            grupos.map((g) => '<tr class="border-t border-slate-100"><td class="py-1.5 text-slate-800">' + escapeHtml(g.recurso) +
+            '<th class="py-1 font-semibold">' + (_actSelectedResource ? 'Acción' : 'Recurso asignado') + '</th><th class="py-1 font-semibold text-right">Tickets</th></tr></thead><tbody>' +
+            grupos.map((g) => '<tr class="border-t border-slate-100"><td class="py-1.5 text-slate-800">' + escapeHtml(g.label) +
               '</td><td class="py-1.5 text-right font-semibold text-slate-900">' + formatEntero(g.tickets) + '</td></tr>').join('') +
           '</tbody></table>'
-        : '<p class="text-[12px] text-slate-500">Sin tickets para esta acción con los filtros actuales.</p>');
+        : '<p class="text-[12px] text-slate-500">Sin tickets para la selección actual.</p>');
   }
 
   function renderActResumenPanel(result) {
     const panel = document.getElementById('act-resumen-panel');
     if (!panel) return;
     const title = document.getElementById('act-resumen-title');
-    if (_actSelectedAcciones.length) {
-      if (title) title.textContent = 'Resumen por recurso — ' + (_actSelectedAcciones.length === 1 ? _actSelectedAcciones[0] : _actSelectedAcciones.length + ' acciones');
-      renderActAccionResumen(panel, result);
-      return;
+    if (title) {
+      title.textContent = _actSelectedResource
+        ? 'Resumen por acción — ' + _actSelectedResource
+        : 'Resumen por recurso' + (_actSelectedAcciones.length === 1 ? ' — ' + _actSelectedAcciones[0] : _actSelectedAcciones.length ? ' — ' + _actSelectedAcciones.length + ' acciones' : '');
     }
-    if (title) title.textContent = 'Detalle del recurso seleccionado';
-    if (!_actSelectedResource) {
-      panel.innerHTML = '<p class="text-[12px] text-slate-500">Seleccione una acción en el filtro «Acción» (o una barra de "Tickets Abiertos por Acción") para ver el resumen por recurso, o una barra de "Tickets Abiertos por Recurso (Servicios)" para ver el detalle de un recurso.</p>';
-      return;
-    }
-    const recursoRows = result.rows.filter((r) => r.recursoAccion === _actSelectedResource);
-    const realizar = recursoRows.filter((r) => r.accion === 'REALIZAR').length;
-    const entregaFinal = recursoRows.filter((r) => r.accion === 'ENTREGA FINAL').length;
-    // Total Asignados (Servicios) is read straight from recursosServicios --
-    // the same count already shown by this resource's bar -- never
-    // recomputed separately, per the spec.
-    const asignadosEntry = result.recursosServicios.find((r) => r.label === _actSelectedResource);
-    const asignados = asignadosEntry ? asignadosEntry.value : 0;
-
-    panel.innerHTML =
-      '<h4 class="text-sm font-bold text-slate-800 mb-3">' + escapeHtml(_actSelectedResource) + '</h4>' +
-      '<div class="text-2xl font-extrabold text-slate-900 mb-3">' + asignados + '<span class="text-xs text-slate-400 font-semibold ml-1">asignados (servicios)</span></div>' +
-      '<dl class="space-y-2 text-[12px]">' +
-      '<div><dt class="text-slate-500">Total Tickets en Realizar</dt><dd class="font-semibold text-slate-800">' + realizar + '</dd></div>' +
-      '<div><dt class="text-slate-500">Total Tickets en Entrega Final</dt><dd class="font-semibold text-slate-800">' + entregaFinal + '</dd></div>' +
-      '</dl>';
+    renderActAccionResumen(panel, result);
   }
 
   /* -------- Entry point -------- */
@@ -1353,7 +1316,8 @@
     const filters = readActivosFilters();
     // The Recurso dimension uses the team list (M.CAP_CARD_RECURSOS); anyone
     // else is grouped as "Otro".
-    const result = M.buildActivos(tickets, filters, { equipo: M.CAP_CARD_RECURSOS });
+    // Charts/table/summary only consider the 4 Primer Nivel acciones.
+    const result = M.buildActivos(tickets, filters, { equipo: M.CAP_CARD_RECURSOS, acciones: M.ACTIVOS_SERVICIOS_ACCIONES });
 
     // A previously selected resource that no longer appears under the
     // current filters (e.g. narrowing Recurso excludes every ticket for it)
@@ -1367,7 +1331,8 @@
     }
     // Same guard for the Acción selection (porAccion is whole-universe, but
     // stays defensive against a future filter that could narrow it).
-    const accionesPresentes = _actSelectedAcciones.filter((x) => result.porAccion.some((a) => a.label === x));
+    const opcionesAccion = actAccionOptions(result);
+    const accionesPresentes = _actSelectedAcciones.filter((x) => opcionesAccion.indexOf(x) !== -1);
     if (accionesPresentes.length !== _actSelectedAcciones.length) {
       _actSelectedAcciones = accionesPresentes;
       _actTablePage = 1;
@@ -1376,7 +1341,6 @@
     }
 
     renderActivosKpis(result);
-    renderActDiarios(filters);
     renderActAccionOptions(result);
     renderActivosCharts(result);
     renderActTable(result);

@@ -356,18 +356,6 @@
     // Power BI's Promedio, which ignores blanks).
     var minutosCol = Object.keys(rows[0]).find(function (k) { return normKey(k) === 'minutos'; }) || null;
 
-    // "Fecha inicial de diagnóstico de calidad" (date a ticket went to the
-    // second level / Calidad). Its exact OData name is not confirmed yet, so
-    // any column whose normalized name has both "fecha" and "diagnostico"
-    // qualifies (Fecha_Inicial_Diagnostico_Calidad, Fecha_Inicial_de_
-    // Diagnostico_de_Calidad, ...). The plain `Diagnostico` text column has
-    // no "fecha" and is never picked. Absent -> undefined on every ticket
-    // (lets buildTicketsDiarios tell "no column" from "no value").
-    var diagCalidadCol = Object.keys(rows[0]).find(function (k) {
-      var nk = normKey(k);
-      return nk.indexOf('fecha') !== -1 && nk.indexOf('diagnostico') !== -1;
-    }) || null;
-
     var tickets = rows.map(function (row) {
       var fechaRaw = row[col('fecha', 'Fecha')];
       var fecha = parseFecha(fechaRaw);
@@ -416,7 +404,6 @@
         tiempoEmpleadoEntrega: fillOrDefault(row[col('tiempoEmpleadoEntrega', 'Tiempo_empleado_entrega')]),
         tiempoDeLlamada: fillOrDefault(row[col('tiempoDeLlamada', 'Tiempo_de_llamada')]),
         minutos: minutosCol ? parseTiempoLlamada(row[minutosCol]) : undefined,
-        fechaDiagnosticoCalidad: diagCalidadCol ? parseFecha(row[diagCalidadCol]) : undefined,
         // Raw HH:MM strings (or null) — kept un-normalized (not "Sin dato")
         // because ticketHours() needs to distinguish "absent" from a real value.
         horaCalInicial: row[col('horaCalInicial', 'Hora_Cal_Inicial')] != null ? row[col('horaCalInicial', 'Hora_Cal_Inicial')] : null,
@@ -1231,69 +1218,6 @@
     return { rows: rows, total: total };
   }
 
-  // buildTicketsDiarios(tickets, filters): per-day series for Primer Nivel's
-  // "Tickets creados vs. Segundo Nivel (Calidad)" line chart, over the WHOLE
-  // ID12086_Tickets_medidor source (any Estado / Acción):
-  //   - creados[i]      = tickets whose Fecha Soporte Inicial (creación) is that day
-  //   - segundoNivel[i] = tickets whose Fecha inicial de diagnóstico de
-  //                       calidad is that day (null series when the column
-  //                       is absent from the template -> hasFechaCalidad)
-  // filters = { fechaCreacionFrom, fechaCreacionTo } (the view's Fecha de
-  // creación filter). Without a range: the last 30 days up to the latest
-  // date present in either series, so the chart never spans years of data.
-  var TICKETS_DIARIOS_DEFAULT_DIAS = 30;
-  function buildTicketsDiarios(tickets, filters) {
-    filters = filters || {};
-    tickets = Array.isArray(tickets) ? tickets : [];
-    var hasFechaCalidad = tickets.some(function (t) { return t.fechaDiagnosticoCalidad !== undefined; });
-
-    var creadosByDay = {}, calidadByDay = {};
-    var maxDay = null, minDay = null;
-    function note(d) {
-      if (!maxDay || d.getTime() > maxDay.getTime()) maxDay = d;
-      if (!minDay || d.getTime() < minDay.getTime()) minDay = d;
-    }
-    tickets.forEach(function (t) {
-      var c = t.fechaSoporteInicial ? asUTCDate(t.fechaSoporteInicial) : null;
-      if (c) { var kc = isoDate(c); creadosByDay[kc] = (creadosByDay[kc] || 0) + 1; note(c); }
-      var q = t.fechaDiagnosticoCalidad ? asUTCDate(t.fechaDiagnosticoCalidad) : null;
-      if (q) { var kq = isoDate(q); calidadByDay[kq] = (calidadByDay[kq] || 0) + 1; note(q); }
-    });
-
-    var from = filters.fechaCreacionFrom ? asUTCDate(filters.fechaCreacionFrom) : null;
-    var to = filters.fechaCreacionTo ? asUTCDate(filters.fechaCreacionTo) : null;
-    if (!to) to = maxDay;
-    if (!from && to) {
-      from = new Date(to.getTime());
-      from.setUTCDate(from.getUTCDate() - (TICKETS_DIARIOS_DEFAULT_DIAS - 1));
-      // An explicit "desde" alone keeps everything from that day on.
-      if (filters.fechaCreacionFrom) from = asUTCDate(filters.fechaCreacionFrom);
-    }
-    if (!from || !to || from.getTime() > to.getTime()) {
-      return { dias: [], creados: [], segundoNivel: hasFechaCalidad ? [] : null, hasFechaCalidad: hasFechaCalidad,
-        totales: { creados: 0, segundoNivel: hasFechaCalidad ? 0 : null }, periodo: null };
-    }
-
-    var dias = [], creados = [], segundoNivel = [];
-    var cur = new Date(from.getTime());
-    while (cur.getTime() <= to.getTime()) {
-      var k = isoDate(cur);
-      dias.push(k);
-      creados.push(creadosByDay[k] || 0);
-      segundoNivel.push(calidadByDay[k] || 0);
-      cur.setUTCDate(cur.getUTCDate() + 1);
-    }
-    function sum(a) { return a.reduce(function (s, v) { return s + v; }, 0); }
-    return {
-      dias: dias,
-      creados: creados,
-      segundoNivel: hasFechaCalidad ? segundoNivel : null,
-      hasFechaCalidad: hasFechaCalidad,
-      totales: { creados: sum(creados), segundoNivel: hasFechaCalidad ? sum(segundoNivel) : null },
-      periodo: { from: isoDate(from), to: isoDate(to) }
-    };
-  }
-
   /* ==================== Tickets Activos ====================
      Business rules confirmed with the user (see test/mapper.test.js's
      "Tickets Activos" section and README.md's matching documentation
@@ -1311,7 +1235,9 @@
          raw .length) -- defensive against a duplicate ID row rather than an
          expected shape of the feed. */
 
-  var ACTIVOS_SERVICIOS_ACCIONES = ['REALIZAR', 'AGENDA ENTREGA FINAL', 'ENTREGA FINAL', 'CIERRE'];
+  // The 4 Primer Nivel acciones. "AGENDAR ENTREGA FINAL" is accepted as an
+  // alias of the feed's "AGENDA ENTREGA FINAL" (same acción, both spellings).
+  var ACTIVOS_SERVICIOS_ACCIONES = ['REALIZAR', 'AGENDA ENTREGA FINAL', 'AGENDAR ENTREGA FINAL', 'ENTREGA FINAL', 'CIERRE'];
   var ACTIVOS_CALIDAD_ACCIONES = ['REVISION EN PLANTA', 'REVISION CALIDAD', 'REVISION DEV', 'REVISION SOLUCION', 'ACTUALIZA VERSION', 'ACTUALIZAR VERSION'];
 
   // Per-bar color mapping for "Tickets Abiertos por Acción (General)",
@@ -1322,6 +1248,7 @@
     'ENTREGA FINAL': '#38BDF8',
     CIERRE: '#0EA5E9',
     'AGENDA ENTREGA FINAL': '#C084FC',
+    'AGENDAR ENTREGA FINAL': '#C084FC',
     'REVISION DEV': '#8B5CF6',
     'REVISION CALIDAD': '#A855F7',
     'REVISION SOLUCION': '#9333EA',
@@ -1346,7 +1273,7 @@
   // Title-Cased like recursoSoporte, so "LAURA SOFIA BELLO CABRERA" and
   // "Laura Sofia Bello Cabrera" are one person (accent variants are fused
   // afterwards by resolveRecursoDisplayNames inside buildActivos).
-  var ENTREGA_ACCIONES = ['ENTREGA FINAL', 'AGENDA ENTREGA FINAL'];
+  var ENTREGA_ACCIONES = ['ENTREGA FINAL', 'AGENDA ENTREGA FINAL', 'AGENDAR ENTREGA FINAL'];
   function recursoAsignado(t) {
     function valid(v) { return v && v !== 'Sin recurso' && v !== 'Sin dato'; }
     if (valid(t.recursoAccion)) return toTitleCase(t.recursoAccion);
@@ -1363,6 +1290,11 @@
   // anyone outside it is shown as RECURSO_OTRO ("Otro"), team names use the
   // list's own spelling, and recursoOptions = the whole team (even people
   // with no ticket) + "Otro"/"Sin recurso" when present.
+  // opts.acciones (optional list, e.g. ACTIVOS_SERVICIOS_ACCIONES): every
+  // chart series, porAccion and rows only consider those acciones. The KPIs
+  // (total / servicios / calidad) still count the whole active universe
+  // under the date/Recurso/Requerimiento filters -- otherwise "Abiertos
+  // Calidad" could never be anything but 0.
   //   - filters.recursos: free multi-select over Recurso_Accion, isAllSelector
   //     semantics (empty/['all'] = no filter) -- same as Capacidad's Recursos
   //     and Segundo Nivel's own filters.recursos. Narrows `filtered` before
@@ -1373,6 +1305,7 @@
     filters = filters || {};
     opts = opts || {};
     var equipo = Array.isArray(opts.equipo) && opts.equipo.length ? opts.equipo : null;
+    var accionesPermitidas = Array.isArray(opts.acciones) && opts.acciones.length ? opts.acciones : null;
     var equipoByKey = {};
     if (equipo) equipo.forEach(function (n) { equipoByKey[recursoGroupKey(toTitleCase(n))] = n; });
     tickets = Array.isArray(tickets) ? tickets : [];
@@ -1441,19 +1374,25 @@
     var accionCount = {};
     var productoCount = {};
 
+    // KPIs: the whole filtered active universe (every acción).
     filtered.forEach(function (t) {
       totalIds.add(t.id);
+      if (ACTIVOS_SERVICIOS_ACCIONES.indexOf(t.accionNorm) !== -1) serviciosIds.add(t.id);
+      else if (ACTIVOS_CALIDAD_ACCIONES.indexOf(t.accionNorm) !== -1) calidadIds.add(t.id);
+      // Any other active accion: counted in totalIds above, no bucket.
+    });
+
+    // Charts, porAccion and rows: only the permitted acciones (opts.acciones).
+    var visibles = accionesPermitidas
+      ? filtered.filter(function (t) { return accionesPermitidas.indexOf(t.accionNorm) !== -1; })
+      : filtered;
+    visibles.forEach(function (t) {
       accionCount[t.accionNorm] = (accionCount[t.accionNorm] || 0) + 1;
       productoCount[t.producto] = (productoCount[t.producto] || 0) + 1;
       if (hasCliente) clienteCount[t.cliente] = (clienteCount[t.cliente] || 0) + 1;
-
       if (ACTIVOS_SERVICIOS_ACCIONES.indexOf(t.accionNorm) !== -1) {
-        serviciosIds.add(t.id);
         recursosServiciosCount[recursoDeTicket.get(t)] = (recursosServiciosCount[recursoDeTicket.get(t)] || 0) + 1;
-      } else if (ACTIVOS_CALIDAD_ACCIONES.indexOf(t.accionNorm) !== -1) {
-        calidadIds.add(t.id);
       }
-      // Any other active accion: counted in totalIds above, no bucket.
     });
 
     var porAccion = sortedCounts(accionCount).map(function (entry) {
@@ -1466,7 +1405,7 @@
     // shape/sort as buildSegundoNivel's own rows. asunto: t.asunto is always
     // null here (Asunto column confirmed absent from the real feed, same
     // graceful degradation Segundo Nivel already established) -> UI shows "—".
-    var rows = filtered.map(function (t) {
+    var rows = visibles.map(function (t) {
       return {
         id: t.id,
         recursoAccion: recursoDeTicket.get(t),
@@ -1659,10 +1598,10 @@
     capacityStatus: capacityStatus,
     buildCapacidad: buildCapacidad,
     buildTicketStatsPorRecurso: buildTicketStatsPorRecurso,
-    buildTicketsDiarios: buildTicketsDiarios,
     RECURSO_OTRO: RECURSO_OTRO,
     buildRecursoTickets: buildRecursoTickets,
     buildActivos: buildActivos,
+    ACTIVOS_SERVICIOS_ACCIONES: ACTIVOS_SERVICIOS_ACCIONES,
     buildSegundoNivel: buildSegundoNivel
   };
   _root.SOFIA_MAPPER = SOFIA_MAPPER;

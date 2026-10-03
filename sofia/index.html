@@ -294,9 +294,9 @@
             <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-creacion-hasta">Fecha de creación hasta</label>
             <input type="date" id="filter-act-creacion-hasta" class="filter-select input-base" />
           </div>
-          <!-- Acción (selección múltiple): sincronizada con el clic en "Tickets Abiertos
-               por Acción (General)"; con acciones elegidas, el panel inferior resume esos
-               tickets por recurso. -->
+          <!-- Acción (selección múltiple): solo las 4 acciones de Primer Nivel
+               (REALIZAR, CIERRE, ENTREGA FINAL, AGENDAR ENTREGA FINAL), todas marcadas
+               por defecto; sincronizada con el clic en "Tickets Abiertos por Acción". -->
           <div>
             <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" id="filter-act-accion-label">Acción</label>
             <div class="multi-select" id="filter-act-accion">
@@ -331,16 +331,7 @@
         </div>
 
         <!-- KPIs -->
-        <div id="kpi-row-activos" class="card-loading-target grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6"></div>
-
-        <!-- Línea: tickets creados (Fecha Soporte Inicial) vs. tickets que pasan a
-             Segundo Nivel de Atención (Fecha Inicial Diagnostico Calidad) por día,
-             sobre toda la fuente ID12086_Tickets_medidor -->
-        <div class="card p-5 card-loading-target mb-6">
-          <h3 class="text-sm font-bold text-slate-800 mb-3">Tickets Creados vs. Tickets a Segundo Nivel de Atención por Día</h3>
-          <div class="chart-box-legend"><canvas id="chart-act-diarios"></canvas></div>
-          <p class="text-[11px] text-slate-500 mt-2" id="chart-act-diarios-note"></p>
-        </div>
+        <div id="kpi-row-activos" class="card-loading-target grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"></div>
 
         <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

@@ -1594,33 +1594,6 @@ test('buildSegundoNivel on data/sample-tickets.json matches the confirmed busine
   ]);
 });
 
-/* ==================== Primer Nivel: Tickets creados vs. Segundo Nivel por día ==================== */
-
-test('buildTicketsDiarios counts created tickets by Fecha Soporte Inicial and second-level ones by Fecha Inicial Diagnostico Calidad, whole source', () => {
-  const rows = [
-    rawActivoTicket({ ID: 1, Fecha_Soporte_Inicial: '2026-08-01T09:00:00', Fecha: '2026-07-01T00:00:00', Estado: 2, Fecha_Inicial_Diagnostico_Calidad: '2026-08-02T00:00:00' }),
-    rawActivoTicket({ ID: 2, Fecha_Soporte_Inicial: '2026-08-01T00:00:00', Accion: 'CREAR', Fecha_Inicial_Diagnostico_Calidad: null }),
-    rawActivoTicket({ ID: 3, Fecha_Soporte_Inicial: '2026-08-03T00:00:00', Fecha_Inicial_Diagnostico_Calidad: '2026-08-03T00:00:00' })
-  ];
-  const r = mapper.buildTicketsDiarios(mapper.normalizeTickets(rows), { fechaCreacionFrom: '2026-08-01', fechaCreacionTo: '2026-08-03' });
-  assert.equal(r.hasFechaCalidad, true);
-  assert.deepEqual(r.dias, ['2026-08-01', '2026-08-02', '2026-08-03']);
-  assert.deepEqual(r.creados, [2, 0, 1]);        // any Estado / Acción counts as created
-  assert.deepEqual(r.segundoNivel, [0, 1, 1]);
-  assert.deepEqual(r.totales, { creados: 3, segundoNivel: 2 });
-});
-
-test('buildTicketsDiarios without a range shows the last 30 days up to the latest date; no quality column -> null series', () => {
-  const rows = [rawActivoTicket({ ID: 1, Fecha_Soporte_Inicial: '2026-08-31T00:00:00' }), rawActivoTicket({ ID: 2, Fecha_Soporte_Inicial: '2026-06-01T00:00:00' })];
-  const r = mapper.buildTicketsDiarios(mapper.normalizeTickets(rows), {});
-  assert.equal(r.hasFechaCalidad, false);
-  assert.equal(r.segundoNivel, null);
-  assert.equal(r.dias.length, 30);
-  assert.equal(r.periodo.from, '2026-08-02');
-  assert.equal(r.periodo.to, '2026-08-31');
-  assert.equal(r.totales.creados, 1);
-});
-
 /* ==================== Capacidad: Total Tickets Atendidos = CountAll ==================== */
 
 test('buildTicketStatsPorRecurso.todos counts every ticket in the period, beyond the team and with blank IDs', () => {
@@ -1651,4 +1624,18 @@ test('buildActivos with opts.equipo: team names from the list, everyone else as 
   assert.deepEqual(r.recursosServicios, [{ label: 'Otro', value: 2 }, { label: 'Lina María Peralta Montealegre', value: 1 }]);
   const onlyOtro = mapper.buildActivos(mapper.normalizeTickets(rows), { recursos: ['Otro'] }, { equipo });
   assert.equal(onlyOtro.kpis.total, 2);
+});
+
+test('buildActivos with opts.acciones: charts/rows only the 4 Primer Nivel acciones, KPIs still count every active ticket', () => {
+  const rows = [
+    rawActivoTicket({ ID: 1, Accion: 'REALIZAR' }),
+    rawActivoTicket({ ID: 2, Accion: 'AGENDAR ENTREGA FINAL' }),
+    rawActivoTicket({ ID: 3, Accion: 'REVISION CALIDAD' }),
+    rawActivoTicket({ ID: 4, Accion: 'OTRA ACCION' })
+  ];
+  const r = mapper.buildActivos(mapper.normalizeTickets(rows), {}, { acciones: mapper.ACTIVOS_SERVICIOS_ACCIONES });
+  assert.deepEqual(r.kpis, { total: 4, servicios: 2, calidad: 1 });
+  assert.deepEqual(r.porAccion.map((a) => a.label).sort(), ['AGENDAR ENTREGA FINAL', 'REALIZAR']);
+  assert.deepEqual(r.rows.map((x) => x.id), [1, 2]);
+  assert.equal(r.recursosServicios.reduce((s, x) => s + x.value, 0), 2);
 });
