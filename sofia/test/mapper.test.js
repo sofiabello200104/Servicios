@@ -1612,7 +1612,7 @@ test('buildTicketStatsPorRecurso.todos counts every ticket in the period, beyond
   assert.equal(picked.todos.tickets, 2); // explicit pick narrows it
 });
 
-test('buildActivos with opts.equipo: team names from the list, everyone else as "Otro"; options = whole team + Otro', () => {
+test('buildActivos with opts.equipo: team names from the list, everyone else as "Otro"; options = only team members with active tickets + Otro', () => {
   const rows = [
     rawActivoTicket({ ID: 1, Accion: 'REALIZAR', Recurso_Accion: 'LINA MARIA PERALTA MONTEALEGRE' }),
     rawActivoTicket({ ID: 2, Accion: 'REALIZAR', Recurso_Accion: 'Persona Externa' }),
@@ -1620,7 +1620,7 @@ test('buildActivos with opts.equipo: team names from the list, everyone else as 
   ];
   const equipo = ['Lina María Peralta Montealegre', 'Laura Sofia Bello Cabrera'];
   const r = mapper.buildActivos(mapper.normalizeTickets(rows), {}, { equipo });
-  assert.deepEqual(r.recursoOptions, ['Laura Sofia Bello Cabrera', 'Lina María Peralta Montealegre', 'Otro']);
+  assert.deepEqual(r.recursoOptions, ['Lina María Peralta Montealegre', 'Otro']);
   assert.deepEqual(r.recursosServicios, [{ label: 'Otro', value: 2 }, { label: 'Lina María Peralta Montealegre', value: 1 }]);
   const onlyOtro = mapper.buildActivos(mapper.normalizeTickets(rows), { recursos: ['Otro'] }, { equipo });
   assert.equal(onlyOtro.kpis.total, 2);

@@ -1340,14 +1340,20 @@
     var requerimientoOptions = hasRequerimiento
       ? Array.from(new Set(universe.map(function (t) { return t.requerimientoOpcion; }).filter(Boolean))).sort()
       : [];
+    // Only resources with at least one active requirement (in the view's
+    // permitted acciones) are offered -- people with nothing active are noise.
+    var universeVisible = accionesPermitidas
+      ? universe.filter(function (t) { return accionesPermitidas.indexOf(t.accionNorm) !== -1; })
+      : universe;
+    var present = new Set(universeVisible.map(function (t) { return recursoDeTicket.get(t); }));
     var recursoOptions;
     if (equipo) {
-      var present = new Set(universe.map(function (t) { return recursoDeTicket.get(t); }));
-      recursoOptions = equipo.slice().sort(function (a, b) { return a.localeCompare(b); });
+      recursoOptions = equipo.filter(function (n) { return present.has(n); })
+        .sort(function (a, b) { return a.localeCompare(b); });
       if (present.has(RECURSO_OTRO)) recursoOptions.push(RECURSO_OTRO);
       if (present.has('Sin recurso')) recursoOptions.push('Sin recurso');
     } else {
-      recursoOptions = Array.from(new Set(universe.map(function (t) { return recursoDeTicket.get(t); }))).sort();
+      recursoOptions = Array.from(present).sort();
     }
 
     var creacionFrom = filters.fechaCreacionFrom ? asUTCDate(filters.fechaCreacionFrom) : null;
