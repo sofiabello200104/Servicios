@@ -358,20 +358,9 @@
     if (!Array.isArray(rows) || !rows.length) return [];
     var cols = detectColumns(rows[0]) || {};
     // Fechas por acción (Dashboard central): pueden no existir en la muestra.
-    // Se revisan las columnas de varias filas (por si alguna fila omite los
-    // nulos) y se prueban varias formas de nombre, de la más a la menos exacta.
-    var colSample = {};
-    rows.slice(0, 50).forEach(function (r) { Object.keys(r || {}).forEach(function (k) { colSample[k] = true; }); });
-    function firstCol(variants) {
-      for (var i = 0; i < variants.length; i++) {
-        var hit = findColumnByTokens(colSample, variants[i], ['final', 'recurso']);
-        if (hit) return hit;
-      }
-      return null;
-    }
-    var fechaCalidadCol = firstCol([['fecha', 'diagnostico', 'calidad'], ['fecha', 'calidad'], ['fecha', 'diagnostico']]);
-    var fechaDevCol = firstCol([['fecha', 'dev'], ['fecha', 'desarrollo']]);
-    var fechaSolucionCol = firstCol([['fecha', 'revision', 'solucion'], ['fecha', 'solucion']]);
+    var fechaCalidadCol = findColumnByTokens(rows[0], ['fecha', 'diagnostico', 'calidad'], ['final', 'recurso']);
+    var fechaDevCol = findColumnByTokens(rows[0], ['fecha', 'dev'], ['final', 'recurso']);
+    var fechaSolucionCol = findColumnByTokens(rows[0], ['fecha', 'revision', 'solucion'], ['final', 'recurso']);
     var fechaSoporteFinalCol = findColumnByTokens(rows[0], ['fecha', 'soporte', 'final']);
     var fechaEntregaFinalCol = findColumnByTokens(rows[0], ['fecha', 'entrega', 'final']);
 

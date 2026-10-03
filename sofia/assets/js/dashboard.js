@@ -69,7 +69,7 @@
   function renderLinea(d) {
     var C = window.SOFIA_CHARTS, L = d.linea;
     document.querySelectorAll('#dash-nivel button').forEach(function (b) { b.classList.toggle('active', b.dataset.nivel === S.nivel); });
-    var disp = L.series;
+    var disp = L.series.filter(function (s) { return s.disponible; });
     var datasets = disp.map(function (s) {
       return { label: labelAccion(s.accion) + ' (' + fmt.format(s.total) + ')', data: s.data, borderColor: SERIE_COLOR[s.accion], backgroundColor: SERIE_COLOR[s.accion],
                pointRadius: L.labels.length > 60 ? 0 : 2, tension: 0.25 };
