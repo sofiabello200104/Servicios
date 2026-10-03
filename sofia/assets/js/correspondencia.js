@@ -177,11 +177,22 @@
     if (S.loading) return;
     S.loading = true; S.error = null; render();
     try {
-      S.items = normalize(await fetchRows());
+      var origen = null;
+      try { S.items = normalize(await fetchRows()); }
+      catch (liveErr) {
+        // Servidor OData lento o caído: se usa la copia automática (cada hora).
+        var copia = window.SOFIA_COPIA ? await window.SOFIA_COPIA.load('correspondencia') : null;
+        var rowsCopia = copia ? window.SOFIA_ODATA.toRows(copia) : [];
+        if (!rowsCopia.length) throw liveErr;
+        S.items = normalize(rowsCopia);
+        origen = copia.updatedAt;
+      }
       S.loaded = true;
       var ds = S.items.map(function (i) { return i.fecha; }).filter(Boolean).sort();
       if (!S.dirtyDates && ds.length) { $('cor-desde').value = ds[0]; $('cor-hasta').value = ds[ds.length - 1]; }
-      $('cor-updated').textContent = 'Actualizado ' + new Date().toLocaleString('es-CO');
+      $('cor-updated').textContent = origen
+        ? 'Copia automática del ' + new Date(origen).toLocaleString('es-CO') + ' (el servidor OData no respondió)'
+        : 'Actualizado ' + new Date().toLocaleString('es-CO');
     } catch (e) {
       S.error = 'No se pudo cargar la correspondencia: ' + e.message;
     } finally {

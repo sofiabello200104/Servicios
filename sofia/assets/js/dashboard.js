@@ -69,8 +69,7 @@
   function renderLinea(d) {
     var C = window.SOFIA_CHARTS, L = d.linea;
     document.querySelectorAll('#dash-nivel button').forEach(function (b) { b.classList.toggle('active', b.dataset.nivel === S.nivel); });
-    var disp = L.series.filter(function (s) { return s.disponible; });
-    var faltan = L.series.filter(function (s) { return !s.disponible; });
+    var disp = L.series;
     var datasets = disp.map(function (s) {
       return { label: labelAccion(s.accion) + ' (' + fmt.format(s.total) + ')', data: s.data, borderColor: SERIE_COLOR[s.accion], backgroundColor: SERIE_COLOR[s.accion],
                pointRadius: L.labels.length > 60 ? 0 : 2, tension: 0.25 };
@@ -84,12 +83,10 @@
     var vacio = !datasets.length || !L.labels.length;
     var msg = 'Sin eventos para el rango seleccionado';
     if (S.accion && !L.series.length) msg = labelAccion(S.accion) + ' no tiene una fecha propia, así que no se grafica en la línea de tiempo';
-    else if (L.series.length && !disp.length) msg = 'Las fechas de estas acciones no llegan en los datos cargados (' + faltan.map(function (s) { return s.campo; }).join(', ') + ')';
     C.chartEmptyState('chart-dash-linea', vacio, msg);
     var g = { dia: 'por día', semana: 'por semana', mes: 'por mes' }[L.granularidad];
     var dmy = function (iso) { return iso.split('-').reverse().join('/'); };
     var nota = 'Cantidad de tickets que pasaron por cada acción, ' + g + (L.desde ? ', del ' + dmy(L.desde) : '') + ' al ' + dmy(L.hasta) + '.';
-    if (faltan.length) nota += ' Sin datos de ' + faltan.map(function (s) { return labelAccion(s.accion) + ' (' + s.campo + ')'; }).join(', ') + ': esa columna no llega en el OData.';
     $('dash-linea-nota').textContent = nota;
   }
 

@@ -42,6 +42,7 @@
   // ISO timestamp of the live data currently on screen (fresh or snapshot);
   // used by the "No se pudo actualizar · datos del ..." label.
   let _shownUpdatedAt = null;
+  let _shownCopia = false; // true when the data on screen is the automatic copy
   let _currentView = 'resumen';
   let _capacidadStale = true;
   let _activosStale = true;
@@ -141,6 +142,22 @@
     if (!snap || !Array.isArray(snap.rows) || !snap.rows.length) return false;
     renderLoadedData(snap.rows, snap.extraRows, snap.failedSources);
     _shownUpdatedAt = snap.updatedAt;
+    _shownCopia = false;
+    updateLastUpdatedText(label + ' ' + window.SOFIA_STORE.formatUpdatedAt(snap.updatedAt));
+    return true;
+  }
+
+  // Copia automática publicada por el workflow (ver copia.js). Solo se dibuja
+  // si es más reciente que lo que ya hay en pantalla.
+  async function showCopiaAutomatica(label) {
+    const snap = await window.SOFIA_COPIA.load('tickets');
+    if (!snap || !Array.isArray(snap.rows) || !snap.rows.length) return false;
+    if (_hasData && _shownUpdatedAt && snap.updatedAt && snap.updatedAt <= _shownUpdatedAt) return false;
+    // JSON convierte las fechas en texto: se restauran para las fuentes extra.
+    const extras = (snap.extraRows || []).map((r) => Object.assign({}, r, { fecha: r.fecha ? new Date(r.fecha) : null }));
+    renderLoadedData(snap.rows, extras, snap.failedSources);
+    _shownUpdatedAt = snap.updatedAt;
+    _shownCopia = true;
     updateLastUpdatedText(label + ' ' + window.SOFIA_STORE.formatUpdatedAt(snap.updatedAt));
     return true;
   }
@@ -180,14 +197,15 @@
       window.SOFIA_STORE.saveUpdatedAt(now);
       renderLoadedData(rows, extra.rows, extra.failedSources);
       _shownUpdatedAt = now;
+      _shownCopia = false;
       updateLastUpdatedText('Actualizado: ' + window.SOFIA_STORE.formatUpdatedAt(now));
       window.SOFIA_STORE.saveSnapshot({ rows, extraRows: extra.rows, failedSources: extra.failedSources, updatedAt: now });
     } catch (err) {
       console.error('[app] Error actualizando datos:', err);
       // Keep whatever is on screen (or fall back to the saved snapshot)
       // instead of blanking the dashboard over a slow/failed refresh.
-      if (hadData || await showSavedSnapshot('')) {
-        updateLastUpdatedText('No se pudo actualizar · datos del ' + window.SOFIA_STORE.formatUpdatedAt(_shownUpdatedAt));
+      if (hadData || await showSavedSnapshot('') || await showCopiaAutomatica('')) {
+        updateLastUpdatedText((_shownCopia ? 'Copia automática del ' : 'No se pudo actualizar · datos del ') + window.SOFIA_STORE.formatUpdatedAt(_shownUpdatedAt) + (_shownCopia ? ' · el OData no respondió' : ''));
       } else {
         showEmptyState('No se pudieron cargar los datos: ' + err.message);
       }
@@ -334,7 +352,10 @@
 
     if (cfg && cfg.configured) {
       // Saved data first (instant), then the slow live refresh behind it.
-      const shown = await showSavedSnapshot('Actualizando… datos del');
+      const shownLocal = await showSavedSnapshot('Actualizando… datos del');
+      // La copia automática (cada hora) puede ser más reciente que la del navegador.
+      const shownCopia = await showCopiaAutomatica('Actualizando… copia automática del');
+      const shown = shownLocal || shownCopia;
       if (!shown) updateLastUpdatedText('Cargando...');
       await actualizarDatos();
     } else {
