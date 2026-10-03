@@ -39,7 +39,7 @@
       <div class="text-[10px] uppercase tracking-wider text-slate-500 px-3 py-2">Vistas</div>
       <a data-view="resumen" class="nav-item active flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2 4 4 8-8 4 4"/></svg>
-        Resumen
+        Dashboard central
       </a>
       <a data-view="capacidad" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V9m6 8V5M5 21h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
@@ -117,45 +117,69 @@
       <!-- ========================= VIEWS ========================= -->
       <div id="views-root" style="display:none;">
 
-      <!-- ========================= RESUMEN ========================= -->
+      <!-- ========================= DASHBOARD CENTRAL (vista "resumen") ========================= -->
       <div id="resumen-content" class="view active">
 
-        <!-- Filtros -->
+        <!-- Rango de fechas + filtros activos -->
         <div class="card p-4 mb-6 flex flex-wrap items-end gap-3">
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-resumen-desde">Rango de fechas (desde)</label>
-            <input type="date" id="filter-resumen-desde" class="filter-select input-base" />
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="dash-desde">Fecha desde</label>
+            <input type="date" id="dash-desde" class="filter-select input-base" />
           </div>
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-resumen-hasta">Rango de fechas (hasta)</label>
-            <input type="date" id="filter-resumen-hasta" class="filter-select input-base" />
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="dash-hasta">Fecha hasta</label>
+            <input type="date" id="dash-hasta" class="filter-select input-base" />
+          </div>
+          <button type="button" id="dash-limpiar" class="btn-secondary">Limpiar</button>
+          <div id="dash-chips" class="flex flex-wrap gap-2 items-center" hidden></div>
+          <p class="text-[11px] text-slate-400 ml-auto max-w-sm">Las tarjetas cuentan tickets activos por Fecha Soporte Inicial, igual que Primer y Segundo Nivel. Haz clic en una tarjeta para filtrar.</p>
+        </div>
+
+        <!-- Tarjetas -->
+        <div id="dash-cards-top" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 card-loading-target"></div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-6">
+          <div>
+            <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Primer Nivel de Atención</div>
+            <div id="dash-cards-primer" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
           </div>
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-resumen-periodo">Periodos</label>
-            <select id="filter-resumen-periodo" class="filter-select"><option value="all">Todos los periodos</option></select>
-          </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-resumen-proceso">Proceso</label>
-            <select id="filter-resumen-proceso" class="filter-select"><option value="all">Todos los procesos</option></select>
-          </div>
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-resumen-producto">Producto</label>
-            <select id="filter-resumen-producto" class="filter-select"><option value="all">Todos los productos</option></select>
+            <div class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Segundo Nivel de Atención</div>
+            <div id="dash-cards-segundo" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
           </div>
         </div>
 
-        <!-- KPIs con sparkline (buildResumen().cards) -->
-        <div id="kpi-row" class="card-loading-target grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"></div>
-
-        <!-- Charts -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Top 10 Clientes con Tickets</h3>
-            <div class="chart-box-tall"><canvas id="chart-resumen-top-clientes"></canvas></div>
+        <!-- Línea de tiempo por acción -->
+        <div class="card p-5 mb-6 card-loading-target">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+            <div>
+              <h3 class="text-sm font-bold text-slate-800">Movimiento de tickets por acción</h3>
+              <p id="dash-linea-nota" class="text-[11px] text-slate-400 mt-0.5"></p>
+            </div>
+            <div id="dash-nivel" class="dash-seg" role="group" aria-label="Nivel de atención">
+              <button type="button" data-nivel="todos" class="active">Todos</button>
+              <button type="button" data-nivel="primer">Primer nivel de atención</button>
+              <button type="button" data-nivel="segundo">Segundo nivel de atención</button>
+            </div>
           </div>
-          <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Top Recursos - Segundo Nivel de Atención</h3>
-            <div class="chart-box-tall"><canvas id="chart-resumen-top-recursos-sn"></canvas></div>
+          <div class="chart-box-tall"><canvas id="chart-dash-linea"></canvas></div>
+        </div>
+
+        <!-- Tops -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          <div class="card p-5 cor-chart-card">
+            <h3 class="text-sm font-bold text-slate-800">Top clientes con tickets</h3>
+            <p class="text-[11px] text-slate-400 mb-3">Tickets activos por cliente</p>
+            <div class="cor-chart-scroll"><div><canvas id="chart-dash-top-clientes"></canvas></div></div>
+          </div>
+          <div class="card p-5 cor-chart-card">
+            <h3 class="text-sm font-bold text-slate-800">Top recursos de Primer Nivel</h3>
+            <p class="text-[11px] text-slate-400 mb-3">Mismo conteo que "Tickets por Recurso" del módulo</p>
+            <div class="cor-chart-scroll"><div><canvas id="chart-dash-top-primer"></canvas></div></div>
+          </div>
+          <div class="card p-5 cor-chart-card">
+            <h3 class="text-sm font-bold text-slate-800">Top recursos de Calidad (Segundo Nivel)</h3>
+            <p class="text-[11px] text-slate-400 mb-3">Mismo conteo que el módulo de Segundo Nivel</p>
+            <div class="cor-chart-scroll"><div><canvas id="chart-dash-top-calidad"></canvas></div></div>
           </div>
         </div>
 
@@ -603,6 +627,7 @@
 <script src="assets/js/charts.js"></script>
 <script src="assets/js/render.js"></script>
 <script src="assets/js/correspondencia.js"></script>
+<script src="assets/js/dashboard.js"></script>
 <script src="assets/js/parametrizacion.js"></script>
 <script src="assets/js/app.js"></script>
 </body>

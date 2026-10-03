@@ -10,7 +10,7 @@
   const M = window.SOFIA_MAPPER;
 
   const VIEW_META = {
-    resumen: { title: 'Resumen', crumb: 'Panel' },
+    resumen: { title: 'Dashboard central', crumb: 'Panel' },
     capacidad: { title: 'Capacidad y Rendimiento', crumb: 'Panel' },
     // Sidebar label and topbar title both read "Primer Nivel de Atención",
     // to pair with the "segundo-nivel" entry below (orchestrator's naming
@@ -91,7 +91,7 @@
     _capacidadStale = true;
     _activosStale = true;
     _segundoNivelStale = true;
-    window.SOFIA_RENDER.renderResumen(tickets);
+    window.SOFIA_DASHBOARD.render(tickets);
     if (_currentView === 'capacidad') {
       window.SOFIA_RENDER.renderCapacidad(tickets, _currentExtraRows, { failedSources: _extraSourcesFailed });
       _capacidadStale = false;
@@ -272,11 +272,6 @@
 
     const btnSample = document.getElementById('btn-cargar-sample');
     if (btnSample) btnSample.addEventListener('click', cargarDatosEjemplo);
-
-    ['filter-resumen-desde', 'filter-resumen-hasta', 'filter-resumen-periodo', 'filter-resumen-proceso', 'filter-resumen-producto'].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener('change', () => window.SOFIA_RENDER.rerenderWithCurrentFilters());
-    });
 
     ['filter-cap-desde', 'filter-cap-hasta', 'filter-cap-proyecto'].forEach((id) => {
       const el = document.getElementById(id);

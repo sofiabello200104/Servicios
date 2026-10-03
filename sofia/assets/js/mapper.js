@@ -340,9 +340,29 @@
 
   /* ==================== normalizeTickets ==================== */
 
+  // Busca una columna cuyo nombre normalizado contenga TODAS las palabras de
+  // `must` y ninguna de `not` (p. ej. "Fecha Inicial Diagnostico Calidad" ->
+  // ['fecha','diagnostico','calidad'] sin 'final'). Tolera guiones bajos,
+  // tildes y el orden de las palabras.
+  function findColumnByTokens(sampleRow, must, not) {
+    if (!sampleRow) return null;
+    not = not || [];
+    return Object.keys(sampleRow).find(function (k) {
+      var nk = normKey(k);
+      return must.every(function (w) { return nk.indexOf(w) !== -1; }) &&
+        !not.some(function (w) { return nk.indexOf(w) !== -1; });
+    }) || null;
+  }
+
   function normalizeTickets(rows) {
     if (!Array.isArray(rows) || !rows.length) return [];
     var cols = detectColumns(rows[0]) || {};
+    // Fechas por acción (Dashboard central): pueden no existir en la muestra.
+    var fechaCalidadCol = findColumnByTokens(rows[0], ['fecha', 'diagnostico', 'calidad'], ['final', 'recurso']);
+    var fechaDevCol = findColumnByTokens(rows[0], ['fecha', 'dev'], ['final', 'recurso']);
+    var fechaSolucionCol = findColumnByTokens(rows[0], ['fecha', 'revision', 'solucion'], ['final', 'recurso']);
+    var fechaSoporteFinalCol = findColumnByTokens(rows[0], ['fecha', 'soporte', 'final']);
+    var fechaEntregaFinalCol = findColumnByTokens(rows[0], ['fecha', 'entrega', 'final']);
 
     function col(field, fallbackKey) {
       return cols[field] || fallbackKey;
@@ -422,7 +442,13 @@
         estado: parseEstado(row[col('estado', 'Estado')]),
         requerimientoOpcion: requerimientoCol ? fillOrDefaultText(row[requerimientoCol], 'Sin requerimiento') : null,
         diagnostico: diagnosticoCol ? fillOrDefaultText(row[diagnosticoCol], 'Sin diagnóstico') : null,
-        asunto: asuntoCol ? fillOrDefaultText(row[asuntoCol], 'Sin asunto') : null
+        asunto: asuntoCol ? fillOrDefaultText(row[asuntoCol], 'Sin asunto') : null,
+        // undefined = columna ausente en el feed; null = columna sin valor.
+        fechaCalidadInicial: fechaCalidadCol ? parseFecha(row[fechaCalidadCol]) : undefined,
+        fechaDevInicial: fechaDevCol ? parseFecha(row[fechaDevCol]) : undefined,
+        fechaSolucionInicial: fechaSolucionCol ? parseFecha(row[fechaSolucionCol]) : undefined,
+        fechaSoporteFinal: fechaSoporteFinalCol ? parseFecha(row[fechaSoporteFinalCol]) : null,
+        fechaEntregaFinal: fechaEntregaFinalCol ? parseFecha(row[fechaEntregaFinalCol]) : null
       };
     });
 
@@ -1629,6 +1655,166 @@
      window in the browser, export via module.exports under Node (so
      test/mapper.test.js can require() this file directly). */
   var _root = (typeof window !== 'undefined') ? window : (typeof globalThis !== 'undefined' ? globalThis : {});
+  /* ==================== Dashboard central ====================
+     Resumen de todos los módulos sobre los MISMOS tickets normalizados:
+       - Tarjetas: tickets activos (Estado = 1, sin CREAR) con Fecha Soporte
+         Inicial dentro del rango -- exactamente el universo de los KPIs de
+         Primer/Segundo Nivel (buildActivos) --, desglosados por acción y por
+         Proceso (Mantenimiento / Implementación).
+       - Línea de tiempo: eventos por acción, cada uno con su propia fecha:
+           REALIZAR          -> Fecha Soporte Inicial
+           REVISION CALIDAD  -> Fecha Inicial Diagnóstico Calidad
+           REVISION DEV      -> Fecha DEV Inicial
+           REVISION SOLUCION -> Fecha Inicial Revisión Solución
+           ENTREGA FINAL     -> Fecha Entrega Inicial
+           CIERRE            -> ticket inactivo; fecha = la última entre
+                                Fecha Entrega Final y Fecha Soporte Final
+         (ACTUALIZAR VERSION y AGENDAR ENTREGA FINAL no tienen fecha propia.)
+       - Tops: clientes (activos), recursos de Primer Nivel y de Calidad
+         (filas de buildActivos con la configuración de cada módulo).
+     filters = { desde, hasta, accion, proceso, nivel: 'todos'|'primer'|'segundo', now } */
+  var DASH_ACCION_ALIAS = { 'AGENDAR ENTREGA FINAL': 'AGENDA ENTREGA FINAL', 'ACTUALIZAR VERSION': 'ACTUALIZA VERSION' };
+  var DASH_ORDEN_ACCIONES = ['REALIZAR', 'AGENDA ENTREGA FINAL', 'ENTREGA FINAL', 'CIERRE', 'REVISION CALIDAD', 'REVISION DEV', 'REVISION SOLUCION', 'ACTUALIZA VERSION'];
+  var DASH_SERIES = [
+    { accion: 'REALIZAR', nivel: 'primer', campo: 'Fecha Soporte Inicial', fecha: function (t) { return t.fechaSoporteInicial; } },
+    { accion: 'ENTREGA FINAL', nivel: 'primer', campo: 'Fecha Entrega Inicial', fecha: function (t) { return t.fechaEntregaInicial; } },
+    { accion: 'CIERRE', nivel: 'primer', campo: 'ticket inactivo (Fecha Entrega Final / Soporte Final)', fecha: function (t) {
+      if (t.estado === 1) return null;
+      var a = t.fechaEntregaFinal, b = t.fechaSoporteFinal;
+      if (a && b) return a > b ? a : b;
+      return a || b || null;
+    } },
+    { accion: 'REVISION CALIDAD', nivel: 'segundo', campo: 'Fecha Inicial Diagnóstico Calidad', col: 'fechaCalidadInicial', fecha: function (t) { return t.fechaCalidadInicial; } },
+    { accion: 'REVISION DEV', nivel: 'segundo', campo: 'Fecha DEV Inicial', col: 'fechaDevInicial', fecha: function (t) { return t.fechaDevInicial; } },
+    { accion: 'REVISION SOLUCION', nivel: 'segundo', campo: 'Fecha Inicial Revisión Solución', col: 'fechaSolucionInicial', fecha: function (t) { return t.fechaSolucionInicial; } }
+  ];
+
+  function dashCanonAccion(a) { return DASH_ACCION_ALIAS[a] || a; }
+
+  function buildDashboardCentral(tickets, filters) {
+    filters = filters || {};
+    tickets = Array.isArray(tickets) ? tickets : [];
+    var desde = filters.desde ? asUTCDate(filters.desde) : null;
+    var hasta = filters.hasta ? asUTCDate(filters.hasta) : null;
+    var accionSel = filters.accion ? dashCanonAccion(filters.accion) : null;
+    var procesoSel = filters.proceso || null;
+    var nivel = filters.nivel || 'todos';
+    var hoy = filters.now ? asUTCDate(filters.now) : localTodayAsUTC(new Date());
+
+    function enRango(d, to) {
+      if (!d) return !desde && !to;
+      var day = toUTCDateOnly(d).getTime();
+      if (desde && day < desde.getTime()) return false;
+      if (to && day > to.getTime()) return false;
+      return true;
+    }
+    var esProceso = function (t) { return !procesoSel || t.proceso === procesoSel; };
+    var esAccion = function (t) { return !accionSel || dashCanonAccion(t.accionNorm) === accionSel; };
+
+    // ---- Tarjetas (mismo universo que los KPIs de los módulos) ----
+    var activos = tickets.filter(function (t) {
+      return t.estado === 1 && t.accionNorm !== 'CREAR' && enRango(t.fechaSoporteInicial, hasta);
+    });
+    var porAccion = {}, porProceso = {}, total = 0;
+    activos.forEach(function (t) {
+      var a = dashCanonAccion(t.accionNorm);
+      if (esProceso(t)) porAccion[a] = (porAccion[a] || 0) + 1;
+      if (esAccion(t)) porProceso[t.proceso] = (porProceso[t.proceso] || 0) + 1;
+      if (esProceso(t) && esAccion(t)) total += 1;
+    });
+    var acciones = Object.keys(porAccion).sort(function (x, y) {
+      var ix = DASH_ORDEN_ACCIONES.indexOf(x), iy = DASH_ORDEN_ACCIONES.indexOf(y);
+      return (ix === -1 ? 99 : ix) - (iy === -1 ? 99 : iy) || x.localeCompare(y);
+    }).map(function (a) {
+      return { accion: a, value: porAccion[a], nivel: ACTIVOS_CALIDAD_ACCIONES.indexOf(a) !== -1 ? 'segundo' : 'primer' };
+    });
+
+    // ---- Línea de tiempo ----
+    // Sin "hasta", la línea llega hasta hoy (Fecha Soporte Inicial puede estar
+    // programada a futuro y no es un evento ocurrido).
+    var hastaLinea = hasta || hoy;
+    var series = DASH_SERIES.filter(function (sd) {
+      if (nivel !== 'todos' && sd.nivel !== nivel) return false;
+      if (accionSel && sd.accion !== accionSel) return false;
+      return true;
+    });
+    var base = tickets.filter(function (t) { return t.accionNorm !== 'CREAR' && esProceso(t); });
+    var eventos = series.map(function (sd) {
+      var disponible = !sd.col || base.some(function (t) { return t[sd.col] !== undefined; });
+      var fechas = [];
+      if (disponible) base.forEach(function (t) {
+        var d = sd.fecha(t);
+        if (d && enRango(d, hastaLinea)) fechas.push(toUTCDateOnly(d));
+      });
+      return { accion: sd.accion, nivel: sd.nivel, campo: sd.campo, disponible: disponible, fechas: fechas };
+    });
+    var minT = null, maxT = null;
+    eventos.forEach(function (e) { e.fechas.forEach(function (d) {
+      var x = d.getTime(); if (minT === null || x < minT) minT = x; if (maxT === null || x > maxT) maxT = x;
+    }); });
+    // Sin "desde": últimos 12 meses (evita arrastrar años casi vacíos por
+    // fechas antiguas aisladas).
+    var end = hastaLinea.getTime();
+    var start = desde ? desde.getTime() : (minT === null ? null : Math.max(minT, end - 364 * 86400000));
+    var granularidad = 'dia', buckets = [];
+    if (start !== null && end !== null && start <= end) {
+      var dias = Math.round((end - start) / 86400000) + 1;
+      granularidad = dias <= 62 ? 'dia' : dias <= 370 ? 'semana' : 'mes';
+      var keyOf = function (d) {
+        if (granularidad === 'dia') return isoDate(d);
+        if (granularidad === 'mes') return isoDate(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)));
+        var dow = (d.getUTCDay() + 6) % 7; // lunes = 0
+        return isoDate(new Date(d.getTime() - dow * 86400000));
+      };
+      var cur = new Date(start), seen = {};
+      while (cur.getTime() <= end) {
+        var k = keyOf(cur); if (!seen[k]) { seen[k] = true; buckets.push(k); }
+        cur = new Date(cur.getTime() + 86400000);
+      }
+      eventos.forEach(function (e) {
+        var counts = {};
+        e.fechas.forEach(function (d) { if (d.getTime() < start) return; var k = keyOf(d); counts[k] = (counts[k] || 0) + 1; });
+        e.data = buckets.map(function (k) { return counts[k] || 0; });
+        e.total = e.data.reduce(function (a, b) { return a + b; }, 0);
+      });
+    } else {
+      eventos.forEach(function (e) { e.data = []; e.total = 0; });
+    }
+    eventos.forEach(function (e) { delete e.fechas; });
+
+    // ---- Tops ----
+    var activosFiltrados = activos.filter(function (t) { return esProceso(t) && esAccion(t); });
+    var clienteCount = {};
+    activosFiltrados.forEach(function (t) {
+      var c = t.cliente || 'Sin cliente';
+      clienteCount[c] = (clienteCount[c] || 0) + 1;
+    });
+    var byId = {};
+    tickets.forEach(function (t) { byId[t.id] = t; });
+    function topRecursos(opts) {
+      var res = buildActivos(tickets, {
+        fechaCreacionFrom: filters.desde || null, fechaCreacionTo: filters.hasta || null,
+        acciones: accionSel ? [accionSel] : null
+      }, opts);
+      var counts = {};
+      res.rows.forEach(function (r) {
+        var t = byId[r.id];
+        if (t && !esProceso(t)) return;
+        counts[r.recursoAccion] = (counts[r.recursoAccion] || 0) + 1; // mismo agrupamiento que la gráfica del módulo
+      });
+      return sortedCounts(counts).slice(0, 10);
+    }
+
+    return {
+      cards: { activos: total, acciones: acciones, mantenimiento: porProceso['Mantenimiento'] || 0, implementacion: porProceso['Implementación'] || 0 },
+      linea: { granularidad: granularidad, labels: buckets, series: eventos, desde: start !== null ? isoDate(new Date(start)) : null, hasta: isoDate(hastaLinea) },
+      topClientes: sortedCounts(clienteCount).slice(0, 10),
+      topRecursosPrimer: topRecursos({ equipo: CAP_CARD_RECURSOS, acciones: ACTIVOS_SERVICIOS_ACCIONES }),
+      topRecursosCalidad: topRecursos({ acciones: SEGUNDO_NIVEL_ACCIONES }),
+      hasCliente: hasClienteColumn(tickets)
+    };
+  }
+
   var SOFIA_MAPPER = {
     detectColumns: detectColumns,
     findAliasColumn: findAliasColumn,
@@ -1662,6 +1848,8 @@
     RECURSO_OTRO: RECURSO_OTRO,
     buildRecursoTickets: buildRecursoTickets,
     buildActivos: buildActivos,
+    buildDashboardCentral: buildDashboardCentral,
+    DASH_SERIES: DASH_SERIES,
     ACTIVOS_SERVICIOS_ACCIONES: ACTIVOS_SERVICIOS_ACCIONES,
     SEGUNDO_NIVEL_ACCIONES: SEGUNDO_NIVEL_ACCIONES,
     buildSegundoNivel: buildSegundoNivel

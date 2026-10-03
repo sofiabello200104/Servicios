@@ -1715,3 +1715,29 @@ test('buildActivos sin equipo (Segundo Nivel): recursoOptions solo incluye recur
   const r = mapper.buildActivos(mapper.normalizeTickets(rows), {}, { acciones: mapper.SEGUNDO_NIVEL_ACCIONES });
   assert.deepEqual(r.recursoOptions, ['Ana Ruiz', 'Luis Diaz']);
 });
+
+test('buildDashboardCentral: cards match the modules; each acción dated by its own column; cierre = inactive', () => {
+  const rows = [
+    // The OData feed sends every column on every row (detection reads row 0).
+    { ID: 1, Estado: 1, Accion: 'REALIZAR', Proceso: 'Mantenimiento', Recurso_Accion: 'Ana Ruiz', Fecha_Soporte_Inicial: '2026-09-01', Fecha_Entrega_Inicial: null, Fecha_Inicial_Diagnostico_Calidad: null, Fecha_Soporte_Final: null, Fecha_Entrega_Final: null },
+    { ID: 2, Estado: 1, Accion: 'AGENDAR ENTREGA FINAL', Proceso: 'Implementación', Recurso_Accion: 'Ana Ruiz', Fecha_Soporte_Inicial: '2026-09-02', Fecha_Entrega_Inicial: '2026-09-05' },
+    { ID: 3, Estado: 1, Accion: 'REVISION CALIDAD', Proceso: 'Mantenimiento', Recurso_Accion: 'Luis Diaz', Fecha_Soporte_Inicial: '2026-09-03', Fecha_Inicial_Diagnostico_Calidad: '2026-09-04' },
+    { ID: 4, Estado: 2, Accion: 'CIERRE', Proceso: 'Mantenimiento', Recurso_Accion: 'Luis Diaz', Fecha_Soporte_Inicial: '2026-09-01', Fecha_Soporte_Final: '2026-09-02', Fecha_Entrega_Final: '2026-09-06' },
+    { ID: 5, Estado: 1, Accion: 'Crear', Proceso: 'Mantenimiento', Recurso_Accion: 'Luis Diaz', Fecha_Soporte_Inicial: '2026-09-01' }
+  ];
+  const t = mapper.normalizeTickets(rows);
+  const d = mapper.buildDashboardCentral(t, { now: '2026-09-10' });
+  const act = mapper.buildActivos(t, {}, {});
+  assert.equal(d.cards.activos, act.kpis.total);
+  assert.equal(d.cards.activos, 3);
+  assert.equal(d.cards.mantenimiento, 2);
+  assert.equal(d.cards.implementacion, 1);
+  assert.deepEqual(d.cards.acciones.map((a) => [a.accion, a.value]), [['REALIZAR', 1], ['AGENDA ENTREGA FINAL', 1], ['REVISION CALIDAD', 1]]);
+  const tot = Object.fromEntries(d.linea.series.map((s) => [s.accion, s.total]));
+  assert.deepEqual(tot, { REALIZAR: 4, 'ENTREGA FINAL': 1, CIERRE: 1, 'REVISION CALIDAD': 1, 'REVISION DEV': 0, 'REVISION SOLUCION': 0 });
+  assert.equal(d.linea.series.find((s) => s.accion === 'REVISION DEV').disponible, false);
+  // Card filter + level buttons
+  const f = mapper.buildDashboardCentral(t, { now: '2026-09-10', proceso: 'Mantenimiento', nivel: 'segundo' });
+  assert.equal(f.cards.activos, 2);
+  assert.deepEqual(f.linea.series.map((s) => s.accion), ['REVISION CALIDAD', 'REVISION DEV', 'REVISION SOLUCION']);
+});

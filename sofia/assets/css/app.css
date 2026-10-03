@@ -202,3 +202,10 @@ input[type="date"].filter-select{min-width:150px;}
 .cor-pill{display:inline-block;padding:3px 10px;border-radius:999px;background:var(--brand-soft);color:var(--brand-deep);font-size:11px;font-weight:600;white-space:nowrap;}
 .cor-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--brand-soft);color:var(--brand-deep);font-size:12px;border:1px solid #BAE6FD;cursor:pointer;}
 .cor-chip:hover{background:#BAE6FD;}
+
+/* ===== Dashboard central ===== */
+.dash-card{position:relative;text-align:left;padding:14px 16px;border-top:3px solid var(--accent);cursor:pointer;width:100%;}
+.dash-card-active{box-shadow:0 0 0 2px var(--accent),0 8px 24px rgba(15,23,42,.10);background:linear-gradient(180deg,#fff, #F8FAFC);}
+.dash-seg{display:inline-flex;background:#F1F5F9;border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap;}
+.dash-seg button{padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;color:#475569;}
+.dash-seg button.active{background:#fff;color:#0369A1;box-shadow:0 1px 3px rgba(15,23,42,.12);}
