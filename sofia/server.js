@@ -416,7 +416,9 @@ function handleODataProxyGet(req, res) {
 }
 
 function handleSampleGet(req, res) {
-  fs.readFile(SAMPLE_PATH, (err, data) => {
+  const entity = new URL(req.url, 'http://x').searchParams.get('entity');
+  const file = entity === 'correspondencia' ? path.join(DATA_DIR, 'sample-correspondencia.json') : SAMPLE_PATH;
+  fs.readFile(file, (err, data) => {
     if (err) return sendJson(res, 404, { error: 'No hay datos de ejemplo generados.' });
     res.writeHead(200, Object.assign({ 'Content-Type': 'application/json; charset=utf-8' }, SECURITY_HEADERS));
     res.end(data);

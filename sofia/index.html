@@ -399,6 +399,7 @@
           <div><label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="cor-cliente">Cliente</label><select id="cor-cliente" class="filter-select"><option value="">Todos los clientes</option></select></div>
           <div><label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="cor-recurso">Responsable</label><select id="cor-recurso" class="filter-select"><option value="">Todos los responsables</option></select></div>
           <button type="button" id="cor-refresh" class="filter-select" style="cursor:pointer">Actualizar</button>
+          <button type="button" id="cor-sample" class="filter-select" style="cursor:pointer" title="Datos de la copia del Power BI INDICADORES">Usar copia del Power BI</button>
           <span id="cor-updated" class="text-xs text-slate-400"></span>
         </div>
         <div id="cor-banner" class="card p-4 mb-6 text-sm" hidden></div>
@@ -421,7 +422,7 @@
             <div class="flex flex-wrap items-center justify-between gap-3 mb-3"><h3 class="font-semibold text-slate-900">Detalle (<span id="cor-count">0</span>)</h3><input type="text" id="cor-search" class="filter-select input-base" placeholder="Buscar..." /></div>
             <div style="overflow-x:auto"><table id="cor-table" class="w-full text-sm text-left">
               <thead><tr class="text-slate-500 border-b border-slate-200">
-                <th data-k="id" data-l="ID" class="py-2 px-2 cursor-pointer">ID</th><th data-k="accion" data-l="Acción" class="py-2 px-2 cursor-pointer">Acción</th><th data-k="recurso" data-l="Responsable" class="py-2 px-2 cursor-pointer">Responsable</th><th data-k="cliente" data-l="Cliente" class="py-2 px-2 cursor-pointer">Cliente</th><th data-k="fecha" data-l="Fecha" class="py-2 px-2 cursor-pointer">Fecha</th>
+                <th data-k="id" data-l="ID" class="py-2 px-2 cursor-pointer">ID</th><th data-k="accion" data-l="Acción" class="py-2 px-2 cursor-pointer">Acción</th><th data-k="recurso" data-l="Responsable" class="py-2 px-2 cursor-pointer">Responsable</th><th data-k="cliente" data-l="Cliente" class="py-2 px-2 cursor-pointer">Cliente</th><th data-k="fecha" data-l="Fecha" class="py-2 px-2 cursor-pointer">Fecha</th><th data-k="asunto" data-l="Asunto" class="py-2 px-2 cursor-pointer">Asunto</th>
               </tr></thead><tbody id="cor-tbody"></tbody></table></div>
             <div class="flex items-center justify-between mt-3 text-sm text-slate-600"><span id="cor-page"></span><span><button type="button" id="cor-prev" class="filter-select" style="cursor:pointer">Anterior</button> <button type="button" id="cor-next" class="filter-select" style="cursor:pointer">Siguiente</button></span></div>
           </div>
