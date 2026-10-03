@@ -333,7 +333,7 @@
         <!-- KPIs -->
         <!-- Tickets Activos + una tarjeta por cada una de las 4 acciones; clic en una
              tarjeta de acción = filtrar esa acción (reemplaza la gráfica por acción) -->
-        <div id="kpi-row-activos" class="card-loading-target grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-3"></div>
+        <div id="kpi-row-act" class="card-loading-target grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-3"></div>
 
         <!-- Nota sobre fechas futuras: mismo estilo que la Memoria de cálculo de Capacidad -->
         <div id="act-fechas-banner" class="flex items-start gap-2 bg-sky-50 border border-sky-200 rounded-xl px-4 py-2.5 mb-6 text-[11px] text-sky-800">
@@ -389,67 +389,115 @@
 
         <!-- Filtros -->
         <div class="card p-4 mb-6 flex flex-wrap items-end gap-3">
+          <!-- Recurso_Accion siempre existe (todo gráfico de esta vista ya lo usa),
+               así que a diferencia de Requerimientos este bloque nunca se oculta. -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" id="filter-sn-recursos-label">Recurso</label>
-            <div class="multi-select" id="filter-sn-recursos">
-              <button type="button" class="filter-select multi-select-trigger" id="filter-sn-recursos-trigger" aria-haspopup="listbox" aria-expanded="false">Seleccionar uno o varios recursos...</button>
-              <div class="multi-select-panel" id="filter-sn-recursos-panel" role="listbox" hidden>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" id="filter-sn-recurso-label">Recurso</label>
+            <div class="multi-select" id="filter-sn-recurso">
+              <button type="button" class="filter-select multi-select-trigger" id="filter-sn-recurso-trigger" aria-haspopup="listbox" aria-expanded="false">Seleccionar uno o varios recursos...</button>
+              <div class="multi-select-panel" id="filter-sn-recurso-panel" role="listbox" hidden>
+                <input type="text" id="filter-sn-recurso-search" class="multi-select-search" placeholder="Buscar..." />
                 <label class="multi-select-option multi-select-all">
-                  <input type="checkbox" id="filter-sn-recursos-all" checked /> Todos
+                  <input type="checkbox" id="filter-sn-recurso-all" checked /> Todos
                 </label>
-                <div class="multi-select-list" id="filter-sn-recursos-list"></div>
+                <div class="multi-select-list" id="filter-sn-recurso-list"></div>
               </div>
             </div>
           </div>
+          <!-- Fecha de creación = Fecha Soporte Inicial -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-sn-accion">Accion</label>
-            <select id="filter-sn-accion" class="filter-select"><option value="all">Todas</option></select>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-sn-creacion-desde">Fecha de creación desde</label>
+            <input type="date" id="filter-sn-creacion-desde" class="filter-select input-base" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-sn-creacion-hasta">Fecha de creación hasta</label>
+            <input type="date" id="filter-sn-creacion-hasta" class="filter-select input-base" />
+          </div>
+          <!-- Acción (selección múltiple): solo las 4 acciones de Segundo Nivel
+               (REVISION CALIDAD, REVISION DEV, REVISION SOLUCION, ACTUALIZAR VERSION), todas marcadas
+               por defecto; sincronizada con el clic en "Tickets Abiertos por Acción". -->
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" id="filter-sn-accion-label">Acción</label>
+            <div class="multi-select" id="filter-sn-accion">
+              <button type="button" class="filter-select multi-select-trigger" id="filter-sn-accion-trigger" aria-haspopup="listbox" aria-expanded="false">Todas las acciones</button>
+              <div class="multi-select-panel" id="filter-sn-accion-panel" role="listbox" hidden>
+                <label class="multi-select-option multi-select-all">
+                  <input type="checkbox" id="filter-sn-accion-all" checked /> Todas
+                </label>
+                <div class="multi-select-list" id="filter-sn-accion-list"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Oculto por completo cuando la plantilla OData no trae la columna
+               Requerimiento_Opcion (ver hasRequerimiento en buildActivos) -- misma
+               degradación elegante que la columna Cliente en Capacidad. -->
+          <div id="filter-sn-requerimientos-wrap" hidden>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" id="filter-sn-requerimientos-label">Requerimientos / Opciones</label>
+            <div class="multi-select" id="filter-sn-requerimientos">
+              <button type="button" class="filter-select multi-select-trigger" id="filter-sn-requerimientos-trigger" aria-haspopup="listbox" aria-expanded="false">Seleccionar uno o varios...</button>
+              <div class="multi-select-panel" id="filter-sn-requerimientos-panel" role="listbox" hidden>
+                <input type="text" id="filter-sn-requerimientos-search" class="multi-select-search" placeholder="Buscar..." />
+                <label class="multi-select-option multi-select-all">
+                  <input type="checkbox" id="filter-sn-requerimientos-all" checked /> Todos
+                </label>
+                <div class="multi-select-list" id="filter-sn-requerimientos-list"></div>
+              </div>
+            </div>
           </div>
           <div>
             <button id="btn-sn-limpiar" class="btn-secondary">Limpiar</button>
           </div>
         </div>
 
-        <!-- KPI (un único card: total de requerimientos en el universo filtrado) -->
-        <div id="kpi-row-segundo-nivel" class="card-loading-target grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6"></div>
+        <!-- KPIs -->
+        <!-- Tickets Activos + una tarjeta por cada una de las 4 acciones; clic en una
+             tarjeta de acción = filtrar esa acción (reemplaza la gráfica por acción) -->
+        <div id="kpi-row-sn" class="card-loading-target grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-3"></div>
+
+        <!-- Nota sobre fechas futuras: mismo estilo que la Memoria de cálculo de Capacidad -->
+        <div id="sn-fechas-banner" class="flex items-start gap-2 bg-sky-50 border border-sky-200 rounded-xl px-4 py-2.5 mb-6 text-[11px] text-sky-800">
+          <svg class="w-4 h-4 shrink-0 mt-0.5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div class="space-y-1">
+            <p><strong>Nota sobre fechas:</strong> la Fecha de creación corresponde a la Fecha Soporte Inicial, que es la fecha programada para el soporte. Por eso puede haber tickets con fechas posteriores a hoy: ya están agendados para más adelante. Si el rango «hasta» no llega a esas fechas, quedan fuera del conteo; de ahí que el total con filtro pueda ser menor que sin filtro.</p>
+            <p id="sn-fechas-detalle" hidden></p>
+          </div>
+        </div>
 
         <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Requerimientos por Recurso</h3>
-            <div class="chart-box-tall"><canvas id="chart-sn-recurso"></canvas></div>
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Tickets por Recurso</h3>
+            <div class="chart-box-tall"><canvas id="chart-sn-recursos-servicios"></canvas></div>
           </div>
           <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Requerimientos por Cliente (Top 10)</h3>
+            <h3 class="text-sm font-bold text-slate-800 mb-3">Recuento de Tickets por Cliente</h3>
             <div class="chart-box-tall chart-scroll"><div class="chart-scroll-inner"><canvas id="chart-sn-cliente"></canvas></div></div>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Distribución por Diagnóstico</h3>
-            <div class="chart-box-legend"><canvas id="chart-sn-diagnostico"></canvas></div>
-          </div>
-          <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Distribución por Producto</h3>
-            <div class="chart-box-legend"><canvas id="chart-sn-producto"></canvas></div>
-          </div>
-        </div>
-
-        <!-- Tabla + panel de insight -->
+        <!-- Tabla (paginada) + panel de resumen del recurso seleccionado --
+             clic en una barra de "Tickets por Recurso"
+             arriba narrows ambos. -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div class="card p-5 lg:col-span-2 card-loading-target">
             <h3 class="text-sm font-bold text-slate-800 mb-3">Requerimientos de Segundo Nivel</h3>
             <div class="overflow-x-auto">
               <table class="tickets-table">
-                <thead id="table-segundo-nivel-head"></thead>
-                <tbody id="table-segundo-nivel-body"></tbody>
+                <thead id="table-sn-head"></thead>
+                <tbody id="table-sn-body"></tbody>
               </table>
+            </div>
+            <div class="flex items-center justify-between mt-3 text-[12px] text-slate-500">
+              <span id="sn-table-page-label">Mostrando 0 de 0</span>
+              <div class="flex items-center gap-2">
+                <button type="button" id="sn-table-prev" class="btn-secondary" disabled>Anterior</button>
+                <button type="button" id="sn-table-next" class="btn-secondary" disabled>Siguiente</button>
+              </div>
             </div>
           </div>
           <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Detalle del recurso seleccionado</h3>
-            <div id="sn-insight-panel"></div>
+            <h3 class="text-sm font-bold text-slate-800 mb-3" id="sn-resumen-title">Detalle del recurso seleccionado</h3>
+            <div id="sn-resumen-panel"></div>
           </div>
         </div>
 

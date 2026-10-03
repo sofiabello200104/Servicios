@@ -1689,3 +1689,19 @@ test('buildActivos fechasFuturas: tickets left out by a "hasta" before their sch
   assert.equal(all.fechasFuturas.futuros, 2);
   assert.deepEqual(all.fechasFuturas.futurosPorAccion, { REALIZAR: 1, CIERRE: 1 });
 });
+
+test('buildActivos for Segundo Nivel (opts.acciones = SEGUNDO_NIVEL_ACCIONES): recursos chart counts those acciones; ACTUALIZAR/ACTUALIZA VERSION match', () => {
+  const rows = [
+    rawActivoTicket({ ID: 1, Accion: 'REVISION CALIDAD', Recurso_Accion: 'Ana' }),
+    rawActivoTicket({ ID: 2, Accion: 'ACTUALIZA VERSION', Recurso_Accion: 'Luis' }),
+    rawActivoTicket({ ID: 3, Accion: 'REALIZAR', Recurso_Accion: 'Ana' }),            // Primer Nivel acción -> out
+    rawActivoTicket({ ID: 4, Accion: 'REVISION EN PLANTA', Recurso_Accion: 'Ana' })   // not in the list -> out
+  ];
+  const tickets = mapper.normalizeTickets(rows);
+  const opts = { acciones: mapper.SEGUNDO_NIVEL_ACCIONES };
+  const r = mapper.buildActivos(tickets, {}, opts);
+  assert.equal(r.kpis.totalAcciones, 2);
+  assert.deepEqual(r.recursosServicios.map((x) => x.label).sort(), ['Ana', 'Luis']);
+  const picked = mapper.buildActivos(tickets, { acciones: ['ACTUALIZAR VERSION'] }, opts);
+  assert.deepEqual(picked.rows.map((x) => x.id), [2]);
+});

@@ -1423,7 +1423,8 @@
     // charts and rows, but NOT porAccion / totalAcciones, so the acción KPI
     // cards always show the full breakdown. "AGENDA" and "AGENDAR ENTREGA
     // FINAL" match each other.
-    function canonAccion(a) { return a === 'AGENDAR ENTREGA FINAL' ? 'AGENDA ENTREGA FINAL' : a; }
+    var ACCION_ALIAS = { 'AGENDAR ENTREGA FINAL': 'AGENDA ENTREGA FINAL', 'ACTUALIZAR VERSION': 'ACTUALIZA VERSION' };
+    function canonAccion(a) { return ACCION_ALIAS[a] || a; }
     var accionesSel = isAllSelector(filters.acciones) ? null : filters.acciones.map(canonAccion);
     function enSeleccion(t) { return !accionesSel || accionesSel.indexOf(canonAccion(t.accionNorm)) !== -1; }
 
@@ -1434,7 +1435,9 @@
       if (!enSeleccion(t)) return;
       productoCount[t.producto] = (productoCount[t.producto] || 0) + 1;
       if (hasCliente) clienteCount[t.cliente] = (clienteCount[t.cliente] || 0) + 1;
-      if (ACTIVOS_SERVICIOS_ACCIONES.indexOf(t.accionNorm) !== -1) {
+      // With opts.acciones, the per-resource chart counts exactly those
+      // acciones (Segundo Nivel uses its own); without it, the Servicios bucket.
+      if (accionesPermitidas || ACTIVOS_SERVICIOS_ACCIONES.indexOf(t.accionNorm) !== -1) {
         recursosServiciosCount[recursoDeTicket.get(t)] = (recursosServiciosCount[recursoDeTicket.get(t)] || 0) + 1;
       }
     });
@@ -1520,6 +1523,11 @@
   //     Recurso_Accion chart -- narrows only `rows`/`insight` below, never
   //     the charts themselves (clicking a bar highlights/filters the table,
   //     it doesn't make the other bars disappear).
+  // NOTE (2026-10-02): the Segundo Nivel view no longer calls this -- it is
+  // built from the same template as Primer Nivel (render.js
+  // createNivelView) on top of buildActivos with opts.acciones =
+  // SEGUNDO_NIVEL_ACCIONES. Kept (and still tested) only because the
+  // Resumen view shares its acción catalog; safe to remove later.
   function buildSegundoNivel(tickets, filters) {
     filters = filters || {};
     tickets = Array.isArray(tickets) ? tickets : [];
@@ -1650,6 +1658,7 @@
     buildRecursoTickets: buildRecursoTickets,
     buildActivos: buildActivos,
     ACTIVOS_SERVICIOS_ACCIONES: ACTIVOS_SERVICIOS_ACCIONES,
+    SEGUNDO_NIVEL_ACCIONES: SEGUNDO_NIVEL_ACCIONES,
     buildSegundoNivel: buildSegundoNivel
   };
   _root.SOFIA_MAPPER = SOFIA_MAPPER;

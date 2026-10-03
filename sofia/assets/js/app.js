@@ -271,24 +271,10 @@
     window.SOFIA_RENDER.wireCapRecursosMultiSelect();
     window.SOFIA_RENDER.wireDrilldownModal();
 
-    ['filter-act-creacion-desde', 'filter-act-creacion-hasta'].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener('change', () => window.SOFIA_RENDER.rerenderActivosWithCurrentFilters());
-    });
-    window.SOFIA_RENDER.wireActAccionMultiSelect();
-    const btnActLimpiar = document.getElementById('btn-act-limpiar');
-    if (btnActLimpiar) btnActLimpiar.addEventListener('click', () => window.SOFIA_RENDER.clearActivosFilters());
-    window.SOFIA_RENDER.wireActRequerimientosMultiSelect();
-    window.SOFIA_RENDER.wireActRecursoMultiSelect();
-    window.SOFIA_RENDER.wireActTablePager();
-
-    const filterSnAccion = document.getElementById('filter-sn-accion');
-    if (filterSnAccion) filterSnAccion.addEventListener('change', () => window.SOFIA_RENDER.rerenderSegundoNivelWithCurrentFilters());
-    const filterSnCliente = document.getElementById('filter-sn-cliente');
-    if (filterSnCliente) filterSnCliente.addEventListener('change', () => window.SOFIA_RENDER.rerenderSegundoNivelWithCurrentFilters());
-    const btnSnLimpiar = document.getElementById('btn-sn-limpiar');
-    if (btnSnLimpiar) btnSnLimpiar.addEventListener('click', () => window.SOFIA_RENDER.clearSegundoNivelFilters());
-    window.SOFIA_RENDER.wireSnRecursosMultiSelect();
+    // Primer and Segundo Nivel share one template (createNivelView in
+    // render.js), which wires its own filters, cards, pager and buttons.
+    window.SOFIA_RENDER.wireActivos();
+    window.SOFIA_RENDER.wireSegundoNivel();
 
     document.querySelectorAll('.nav-item[data-view]').forEach((el) => {
       el.addEventListener('click', () => switchView(el.dataset.view));
