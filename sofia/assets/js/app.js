@@ -16,8 +16,7 @@
     // to pair with the "segundo-nivel" entry below (orchestrator's naming
     // call -- see odd/tasks/primer-nivel-atencion.md's "Naming scope").
     activos: { title: 'Primer Nivel de Atención', crumb: 'Panel' },
-    'segundo-nivel': { title: 'Segundo Nivel de Atención', crumb: 'Panel' },
-    correspondencia: { title: 'Correspondencia Recibida', crumb: 'Panel' }
+    'segundo-nivel': { title: 'Segundo Nivel de Atención', crumb: 'Panel' }
   };
   const LAST_VIEW_KEY = 'sofia_last_view';
 
@@ -30,21 +29,15 @@
   let _currentExtraRows = [];
   let _extraSourcesFailed = [];
   let _hasData = false;
-  // Whether the ticket empty-state (no data / OData error) should show when a
-  // ticket-based view is active; Correspondencia temporarily overrides it.
-  let _emptyWanted = true;
   // ISO timestamp of the live data currently on screen (fresh or snapshot);
   // used by the "No se pudo actualizar · datos del ..." label.
   let _shownUpdatedAt = null;
-  let _shownOrigen = null; // 'pbix' when the data on screen is the Power BI copy
   let _currentView = 'resumen';
   let _capacidadStale = true;
   let _activosStale = true;
   let _segundoNivelStale = true;
 
-  let _updating = false;
   function setUpdatingState(isUpdating) {
-    _updating = isUpdating;
     const btn = document.getElementById('btn-actualizar-datos');
     if (!btn) return;
     btn.disabled = isUpdating;
@@ -62,18 +55,14 @@
 
   function showEmptyState(message) {
     _hasData = false;
-    _emptyWanted = true;
     document.getElementById('empty-state').style.display = '';
     document.getElementById('views-root').style.display = 'none';
     const msgEl = document.getElementById('empty-state-error');
     if (msgEl) msgEl.textContent = message || '';
-    const hintEl = document.getElementById('empty-state-hint');
-    if (hintEl) hintEl.hidden = !message;
   }
 
   function showContent() {
     _hasData = true;
-    _emptyWanted = false;
     document.getElementById('empty-state').style.display = 'none';
     document.getElementById('views-root').style.display = '';
   }
@@ -134,29 +123,6 @@
     return true;
   }
 
-  // Last snapshot downloaded by the scheduled workflow (data/snapshot/).
-  // Used when the browser has no saved copy yet, or the live OData call fails.
-  async function showServerSnapshot(label) {
-    try {
-      const res = await fetch('/api/snapshot?entity=tickets');
-      if (!res.ok) return false;
-      const snap = await res.json();
-      if (!snap || !Array.isArray(snap.rows) || !snap.rows.length) return false;
-      // JSON turns Dates into strings: restore them for the extra-source rows.
-      const extras = (snap.extraRows || []).map((r) => Object.assign({}, r, { fecha: r.fecha ? new Date(r.fecha) : null }));
-      renderLoadedData(snap.rows, extras, snap.failedSources);
-      _shownUpdatedAt = snap.updatedAt || null;
-      _shownOrigen = snap.origen || 'snapshot';
-      if (snap.origen === 'pbix') {
-        // Copia del Power BI: el .pbix solo trae los tickets del 01/10; el resto es la muestra (hasta 10/09).
-        updateLastUpdatedText('Copia del Power BI INDICADORES (corte 01/10/2026) · sin conexión OData');
-      } else {
-        updateLastUpdatedText(label + ' ' + (snap.updatedAt ? window.SOFIA_STORE.formatUpdatedAt(snap.updatedAt) : ''));
-      }
-      return true;
-    } catch (e) { return false; }
-  }
-
   async function actualizarDatos() {
     setUpdatingState(true);
     // Skeletons only when there is nothing on screen yet -- with saved data
@@ -192,10 +158,8 @@
       console.error('[app] Error actualizando datos:', err);
       // Keep whatever is on screen (or fall back to the saved snapshot)
       // instead of blanking the dashboard over a slow/failed refresh.
-      if (hadData || await showSavedSnapshot('') || await showServerSnapshot('')) {
-        updateLastUpdatedText(_shownOrigen === 'pbix'
-          ? 'Copia del Power BI INDICADORES (corte 01/10/2026) · el servidor OData no respondió'
-          : 'No se pudo actualizar · datos del ' + window.SOFIA_STORE.formatUpdatedAt(_shownUpdatedAt));
+      if (hadData || await showSavedSnapshot('')) {
+        updateLastUpdatedText('No se pudo actualizar · datos del ' + window.SOFIA_STORE.formatUpdatedAt(_shownUpdatedAt));
       } else {
         showEmptyState('No se pudieron cargar los datos: ' + err.message);
       }
@@ -247,17 +211,6 @@
 
     try { localStorage.setItem(LAST_VIEW_KEY, view); } catch (e) { /* ignore (private mode, etc.) */ }
 
-    // Correspondencia is independent of Tickets: show it even when the ticket
-    // load failed (empty-state), and restore the empty-state for other views.
-    const emptyEl = document.getElementById('empty-state');
-    const rootEl = document.getElementById('views-root');
-    if (emptyEl && rootEl) {
-      const showRoot = _hasData || view === 'correspondencia';
-      rootEl.style.display = showRoot ? '' : 'none';
-      emptyEl.style.display = showRoot ? 'none' : (_emptyWanted ? '' : 'none');
-    }
-    if (view === 'correspondencia') window.SOFIA_CORRESPONDENCIA.show();
-
     if (view === 'capacidad' && _hasData && _capacidadStale) {
       window.SOFIA_RENDER.renderCapacidad(_currentTickets, _currentExtraRows, { failedSources: _extraSourcesFailed });
       _capacidadStale = false;
@@ -297,8 +250,6 @@
 
     const btnSample = document.getElementById('btn-cargar-sample');
     if (btnSample) btnSample.addEventListener('click', cargarDatosEjemplo);
-    const btnRetry = document.getElementById('btn-reintentar');
-    if (btnRetry) btnRetry.addEventListener('click', () => { if (!_updating) actualizarDatos(); });
 
     ['filter-resumen-desde', 'filter-resumen-hasta', 'filter-resumen-periodo', 'filter-resumen-proceso', 'filter-resumen-producto'].forEach((id) => {
       const el = document.getElementById(id);
@@ -348,7 +299,7 @@
 
     if (cfg && cfg.configured) {
       // Saved data first (instant), then the slow live refresh behind it.
-      const shown = (await showSavedSnapshot('Actualizando… datos del')) || (await showServerSnapshot('Actualizando… datos del'));
+      const shown = await showSavedSnapshot('Actualizando… datos del');
       if (!shown) updateLastUpdatedText('Cargando...');
       await actualizarDatos();
     } else {
@@ -356,7 +307,7 @@
     }
   }
 
-  window.SOFIA_APP = { actualizarDatos, cargarDatosEjemplo, isUpdating: () => _updating };
+  window.SOFIA_APP = { actualizarDatos, cargarDatosEjemplo };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootstrap);

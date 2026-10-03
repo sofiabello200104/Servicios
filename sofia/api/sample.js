@@ -17,9 +17,7 @@ module.exports = function handler(req, res) {
     return res.status(405).json({ error: 'Método no permitido.' });
   }
 
-  const entity = new URL(req.url, 'http://x').searchParams.get('entity');
-  const file = entity === 'correspondencia' ? path.join(process.cwd(), 'data', 'sample-correspondencia.json') : SAMPLE_PATH;
-  fs.readFile(file, (err, data) => {
+  fs.readFile(SAMPLE_PATH, (err, data) => {
     if (err) {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       return res.status(404).json({ error: 'No hay datos de ejemplo generados.' });

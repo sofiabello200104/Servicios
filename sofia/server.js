@@ -415,31 +415,8 @@ function handleODataProxyGet(req, res) {
   performODataRequest(req, targetUrl, cfg.authUser, cfg.authPass, res);
 }
 
-function handleSnapshotGet(req, res) {
-  const zlib = require('zlib');
-  const entity = new URL(req.url, 'http://x').searchParams.get('entity') || 'tickets';
-  const files = { tickets: 'tickets.json.gz', correspondencia: 'correspondencia.json.gz' };
-  if (!files[entity]) return sendJson(res, 400, { error: 'Entidad no válida.' });
-  try {
-    const dir = path.join(DATA_DIR, 'snapshot');
-    let data, updatedAt = null;
-    try {
-      data = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(dir, files[entity]))).toString('utf8'));
-      try { updatedAt = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')).updatedAt; } catch (e) { /* sin meta */ }
-    } catch (e) {
-      // Sin snapshot del workflow: copia del Power BI INDICADORES.pbix (solo tickets).
-      if (entity !== 'tickets') throw e;
-      data = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(DATA_DIR, 'pbix', 'tickets.json.gz'))).toString('utf8'));
-      updatedAt = data.updatedAt;
-    }
-    sendJson(res, 200, Object.assign({}, data, { updatedAt }));
-  } catch (e) { sendJson(res, 404, { error: 'Aún no hay snapshot de datos.' }); }
-}
-
 function handleSampleGet(req, res) {
-  const entity = new URL(req.url, 'http://x').searchParams.get('entity');
-  const file = entity === 'correspondencia' ? path.join(DATA_DIR, 'sample-correspondencia.json') : SAMPLE_PATH;
-  fs.readFile(file, (err, data) => {
+  fs.readFile(SAMPLE_PATH, (err, data) => {
     if (err) return sendJson(res, 404, { error: 'No hay datos de ejemplo generados.' });
     res.writeHead(200, Object.assign({ 'Content-Type': 'application/json; charset=utf-8' }, SECURITY_HEADERS));
     res.end(data);
@@ -458,7 +435,6 @@ function requestHandler(req, res) {
   // function at api/odata-proxy.js); /odata-proxy is kept for older callers.
   if ((urlPath === '/odata-proxy' || urlPath === '/api/odata-proxy') && req.method === 'GET') return handleODataProxyGet(req, res);
   if (urlPath === '/api/sample' && req.method === 'GET') return handleSampleGet(req, res);
-  if (urlPath === '/api/snapshot' && req.method === 'GET') return handleSnapshotGet(req, res);
 
   if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(req, res);
 
