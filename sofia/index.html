@@ -53,6 +53,10 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         Segundo Nivel de Atención
       </a>
+      <a data-view="correspondencia" class="nav-item flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium cursor-pointer text-slate-300">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l9 6 9-6M5 5h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>
+        Correspondencia Recibida
+      </a>
       <!-- Más vistas se agregarán acá a medida que el dashboard crezca. -->
     </nav>
 
@@ -385,6 +389,45 @@
       </div>
 
       <!-- ========================= SEGUNDO NIVEL DE ATENCIÓN ========================= -->
+      <!-- ========================= CORRESPONDENCIA RECIBIDA ========================= -->
+      <div id="correspondencia-content" class="view">
+        <div class="card p-4 mb-6 flex flex-wrap items-end gap-3">
+          <div id="cor-fecha-filters" class="flex flex-wrap gap-3" style="display:none">
+            <div><label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="cor-desde">Desde</label><input type="date" id="cor-desde" class="filter-select input-base" /></div>
+            <div><label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="cor-hasta">Hasta</label><input type="date" id="cor-hasta" class="filter-select input-base" /></div>
+          </div>
+          <div><label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="cor-cliente">Cliente</label><select id="cor-cliente" class="filter-select"><option value="">Todos los clientes</option></select></div>
+          <div><label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="cor-recurso">Responsable</label><select id="cor-recurso" class="filter-select"><option value="">Todos los responsables</option></select></div>
+          <button type="button" id="cor-refresh" class="filter-select" style="cursor:pointer">Actualizar</button>
+          <span id="cor-updated" class="text-xs text-slate-400"></span>
+        </div>
+        <div id="cor-banner" class="card p-4 mb-6 text-sm" hidden></div>
+        <div id="cor-skeleton" class="card p-8 mb-6 text-sm text-slate-400 text-center" hidden>Cargando correspondencia…</div>
+        <div id="cor-body" style="display:none">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="card p-5"><div class="text-xs text-slate-500">Total Correspondencia</div><div id="cor-kpi-total" class="text-2xl font-bold text-slate-900 mt-1">—</div></div>
+            <div class="card p-5"><div class="text-xs text-slate-500">Top Acción</div><div id="cor-kpi-accion" class="text-xl font-bold text-slate-900 mt-1 truncate">—</div><div id="cor-kpi-accion-sub" class="text-xs text-slate-500"></div></div>
+            <div class="card p-5"><div class="text-xs text-slate-500">Top Remitente</div><div id="cor-kpi-remitente" class="text-xl font-bold text-slate-900 mt-1 truncate">—</div><div id="cor-kpi-remitente-sub" class="text-xs text-slate-500"></div></div>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+            <div class="card p-5"><h3 class="font-semibold text-slate-900 mb-3">Distribución por Acción</h3><div><canvas id="chart-cor-accion"></canvas></div></div>
+            <div class="card p-5"><h3 class="font-semibold text-slate-900 mb-3">Correspondencia por Responsable</h3><div><canvas id="chart-cor-recurso"></canvas></div></div>
+          </div>
+          <div class="card p-5 mb-6">
+            <div class="flex items-center justify-between mb-3"><h3 id="cor-cliente-title" class="font-semibold text-slate-900">Top 10 Clientes</h3><button type="button" id="cor-cliente-toggle" class="text-sm text-sky-600 hover:underline" hidden></button></div>
+            <div><canvas id="chart-cor-cliente"></canvas></div>
+          </div>
+          <div class="card p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-3"><h3 class="font-semibold text-slate-900">Detalle (<span id="cor-count">0</span>)</h3><input type="text" id="cor-search" class="filter-select input-base" placeholder="Buscar..." /></div>
+            <div style="overflow-x:auto"><table id="cor-table" class="w-full text-sm text-left">
+              <thead><tr class="text-slate-500 border-b border-slate-200">
+                <th data-k="id" data-l="ID" class="py-2 px-2 cursor-pointer">ID</th><th data-k="accion" data-l="Acción" class="py-2 px-2 cursor-pointer">Acción</th><th data-k="recurso" data-l="Responsable" class="py-2 px-2 cursor-pointer">Responsable</th><th data-k="cliente" data-l="Cliente" class="py-2 px-2 cursor-pointer">Cliente</th><th data-k="fecha" data-l="Fecha" class="py-2 px-2 cursor-pointer">Fecha</th>
+              </tr></thead><tbody id="cor-tbody"></tbody></table></div>
+            <div class="flex items-center justify-between mt-3 text-sm text-slate-600"><span id="cor-page"></span><span><button type="button" id="cor-prev" class="filter-select" style="cursor:pointer">Anterior</button> <button type="button" id="cor-next" class="filter-select" style="cursor:pointer">Siguiente</button></span></div>
+          </div>
+        </div>
+      </div>
+
       <div id="segundo-nivel-content" class="view">
 
         <!-- Filtros -->
@@ -515,6 +558,7 @@
 <script src="assets/js/data-sources.js"></script>
 <script src="assets/js/charts.js"></script>
 <script src="assets/js/render.js"></script>
+<script src="assets/js/correspondencia.js"></script>
 <script src="assets/js/parametrizacion.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
