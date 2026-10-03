@@ -134,6 +134,11 @@
   }
 
   async function fetchSnapshot() {
+    // Prefer the workflow's latest download; else the Power BI copy.
+    try {
+      var r1 = await fetch('/api/snapshot?entity=correspondencia');
+      if (r1.ok) { var rows1 = window.SOFIA_ODATA.toRows(await r1.json()); if (rows1.length) return rows1; }
+    } catch (e) { /* cae a la copia del Power BI */ }
     var res = await fetch('/api/sample?entity=correspondencia');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     return window.SOFIA_ODATA.toRows(await res.json());

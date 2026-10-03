@@ -133,6 +133,21 @@
     return true;
   }
 
+  // Last snapshot downloaded by the scheduled workflow (data/snapshot/).
+  // Used when the browser has no saved copy yet, or the live OData call fails.
+  async function showServerSnapshot(label) {
+    try {
+      const res = await fetch('/api/snapshot?entity=tickets');
+      if (!res.ok) return false;
+      const snap = await res.json();
+      if (!snap || !Array.isArray(snap.rows) || !snap.rows.length) return false;
+      renderLoadedData(snap.rows, snap.extraRows, snap.failedSources);
+      _shownUpdatedAt = snap.updatedAt || null;
+      updateLastUpdatedText(label + ' ' + (snap.updatedAt ? window.SOFIA_STORE.formatUpdatedAt(snap.updatedAt) : ''));
+      return true;
+    } catch (e) { return false; }
+  }
+
   async function actualizarDatos() {
     setUpdatingState(true);
     // Skeletons only when there is nothing on screen yet -- with saved data
@@ -168,7 +183,7 @@
       console.error('[app] Error actualizando datos:', err);
       // Keep whatever is on screen (or fall back to the saved snapshot)
       // instead of blanking the dashboard over a slow/failed refresh.
-      if (hadData || await showSavedSnapshot('')) {
+      if (hadData || await showSavedSnapshot('') || await showServerSnapshot('')) {
         updateLastUpdatedText('No se pudo actualizar · datos del ' + window.SOFIA_STORE.formatUpdatedAt(_shownUpdatedAt));
       } else {
         showEmptyState('No se pudieron cargar los datos: ' + err.message);
@@ -322,7 +337,7 @@
 
     if (cfg && cfg.configured) {
       // Saved data first (instant), then the slow live refresh behind it.
-      const shown = await showSavedSnapshot('Actualizando… datos del');
+      const shown = (await showSavedSnapshot('Actualizando… datos del')) || (await showServerSnapshot('Actualizando… datos del'));
       if (!shown) updateLastUpdatedText('Cargando...');
       await actualizarDatos();
     } else {

@@ -415,6 +415,20 @@ function handleODataProxyGet(req, res) {
   performODataRequest(req, targetUrl, cfg.authUser, cfg.authPass, res);
 }
 
+function handleSnapshotGet(req, res) {
+  const zlib = require('zlib');
+  const entity = new URL(req.url, 'http://x').searchParams.get('entity') || 'tickets';
+  const files = { tickets: 'tickets.json.gz', correspondencia: 'correspondencia.json.gz' };
+  if (!files[entity]) return sendJson(res, 400, { error: 'Entidad no válida.' });
+  try {
+    const dir = path.join(DATA_DIR, 'snapshot');
+    const data = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(dir, files[entity]))).toString('utf8'));
+    let updatedAt = null;
+    try { updatedAt = JSON.parse(fs.readFileSync(path.join(dir, 'meta.json'), 'utf8')).updatedAt; } catch (e) { /* sin meta */ }
+    sendJson(res, 200, Object.assign({}, data, { updatedAt }));
+  } catch (e) { sendJson(res, 404, { error: 'Aún no hay snapshot de datos.' }); }
+}
+
 function handleSampleGet(req, res) {
   const entity = new URL(req.url, 'http://x').searchParams.get('entity');
   const file = entity === 'correspondencia' ? path.join(DATA_DIR, 'sample-correspondencia.json') : SAMPLE_PATH;
@@ -437,6 +451,7 @@ function requestHandler(req, res) {
   // function at api/odata-proxy.js); /odata-proxy is kept for older callers.
   if ((urlPath === '/odata-proxy' || urlPath === '/api/odata-proxy') && req.method === 'GET') return handleODataProxyGet(req, res);
   if (urlPath === '/api/sample' && req.method === 'GET') return handleSampleGet(req, res);
+  if (urlPath === '/api/snapshot' && req.method === 'GET') return handleSnapshotGet(req, res);
 
   if (req.method === 'GET' || req.method === 'HEAD') return serveStatic(req, res);
 
