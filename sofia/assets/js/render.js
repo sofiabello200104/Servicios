@@ -1002,6 +1002,32 @@
     });
   }
 
+  /* -------- Nota sobre fechas futuras (bajo las tarjetas) -------- */
+  // Dynamic line of the "Nota sobre fechas" banner: how many tickets the
+  // current range leaves out because their support is scheduled after
+  // "hasta", or -- when nothing is left out -- how many of the counted
+  // tickets are scheduled after today. Hidden when neither applies.
+  function renderActFechasNota(result) {
+    const el = document.getElementById('act-fechas-detalle');
+    if (!el) return;
+    const f = result.fechasFuturas;
+    const desglose = (porAccion) => {
+      const parts = Object.keys(porAccion).sort((a, b) => porAccion[b] - porAccion[a])
+        .map((a) => formatEntero(porAccion[a]) + ' en ' + a.charAt(0) + a.slice(1).toLowerCase());
+      return parts.length ? ' (' + parts.join(', ') + ')' : '';
+    };
+    let html = '';
+    if (f && f.excluidosPosterior > 0) {
+      html = '<strong>Con el rango actual</strong> quedan fuera <strong>' + formatEntero(f.excluidosPosterior) + '</strong> tickets con soporte programado después del ' +
+        escapeHtml(isoToDMY(f.hasta)) + escapeHtml(desglose(f.excluidosPorAccion)) + '. Amplíe la fecha «hasta» para incluirlos.';
+    } else if (f && f.futuros > 0) {
+      html = '<strong>El total actual incluye</strong> <strong>' + formatEntero(f.futuros) + '</strong> tickets con soporte programado después de hoy (' +
+        escapeHtml(isoToDMY(f.hoy)) + ')' + escapeHtml(desglose(f.futurosPorAccion)) + '.';
+    }
+    el.innerHTML = html;
+    el.hidden = !html;
+  }
+
   /* -------- Requerimientos / Opciones: searchable multiselect -------- */
   /* Hidden entirely when buildActivos reports hasRequerimiento:false (the
      Requerimiento_Opcion column doesn't exist in the feed yet) -- same
@@ -1340,6 +1366,7 @@
     }
 
     renderActivosKpis(result);
+    renderActFechasNota(result);
     renderActAccionOptions(result);
     renderActivosCharts(result);
     renderActTable(result);

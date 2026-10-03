@@ -333,7 +333,16 @@
         <!-- KPIs -->
         <!-- Tickets Activos + una tarjeta por cada una de las 4 acciones; clic en una
              tarjeta de acción = filtrar esa acción (reemplaza la gráfica por acción) -->
-        <div id="kpi-row-activos" class="card-loading-target grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6"></div>
+        <div id="kpi-row-activos" class="card-loading-target grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-3"></div>
+
+        <!-- Nota sobre fechas futuras: mismo estilo que la Memoria de cálculo de Capacidad -->
+        <div id="act-fechas-banner" class="flex items-start gap-2 bg-sky-50 border border-sky-200 rounded-xl px-4 py-2.5 mb-6 text-[11px] text-sky-800">
+          <svg class="w-4 h-4 shrink-0 mt-0.5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <div class="space-y-1">
+            <p><strong>Nota sobre fechas:</strong> la Fecha de creación corresponde a la Fecha Soporte Inicial, que es la fecha programada para el soporte. Por eso hay tickets, sobre todo en Realizar, con fechas posteriores a hoy: ya están agendados para más adelante. Si el rango «hasta» no llega a esas fechas, quedan fuera del conteo; de ahí que el total con filtro pueda ser menor que sin filtro.</p>
+            <p id="act-fechas-detalle" hidden></p>
+          </div>
+        </div>
 
         <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

@@ -1373,6 +1373,32 @@
       return true;
     });
 
+    // Future-scheduled support ("fechas futuras" note under the KPIs).
+    // Fecha Soporte Inicial is the SCHEDULED support date, so tickets still
+    // to be done (mostly REALIZAR) can carry a date after today. For the
+    // permitted acciones under the Recurso/Requerimiento filters:
+    //   - excluidosPosterior: left out because that date is after "hasta"
+    //   - futuros: counted now with a date after today (filters.now, a
+    //     test-only override like resolvePeriod's, defaults to today)
+    // each with a per-acción breakdown.
+    var hoy = filters.now ? asUTCDate(filters.now) : localTodayAsUTC(new Date());
+    var fechasFuturas = { hoy: isoDate(hoy), hasta: creacionTo ? isoDate(creacionTo) : null,
+      excluidosPosterior: 0, excluidosPorAccion: {}, futuros: 0, futurosPorAccion: {} };
+    universe.forEach(function (t) {
+      if (accionesPermitidas && accionesPermitidas.indexOf(t.accionNorm) === -1) return;
+      if (requerimientosFilter && requerimientosFilter.indexOf(t.requerimientoOpcion) === -1) return;
+      if (recursosFilter && recursosFilter.indexOf(recursoDeTicket.get(t)) === -1) return;
+      if (!t.fechaSoporteInicial) return;
+      var day = toUTCDateOnly(t.fechaSoporteInicial).getTime();
+      if (creacionTo && day > creacionTo.getTime()) {
+        fechasFuturas.excluidosPosterior += 1;
+        fechasFuturas.excluidosPorAccion[t.accionNorm] = (fechasFuturas.excluidosPorAccion[t.accionNorm] || 0) + 1;
+      } else if (day > hoy.getTime() && !(creacionFrom && day < creacionFrom.getTime())) {
+        fechasFuturas.futuros += 1;
+        fechasFuturas.futurosPorAccion[t.accionNorm] = (fechasFuturas.futurosPorAccion[t.accionNorm] || 0) + 1;
+      }
+    });
+
     var totalIds = new Set();
     var serviciosIds = new Set();
     var calidadIds = new Set();
@@ -1448,6 +1474,7 @@
       hasRequerimiento: hasRequerimiento,
       requerimientoOptions: requerimientoOptions,
       recursoOptions: recursoOptions,
+      fechasFuturas: fechasFuturas,
       rows: rows
     };
   }

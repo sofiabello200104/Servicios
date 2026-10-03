@@ -1668,3 +1668,24 @@ test('buildActivos filters.acciones narrows charts and rows but keeps the full a
   assert.equal(r.kpis.totalAcciones, 3);
   assert.equal(r.porAccion.reduce((s, a) => s + a.value, 0), 3);
 });
+
+test('buildActivos fechasFuturas: tickets left out by a "hasta" before their scheduled support, or counted with a future date', () => {
+  const rows = [
+    rawActivoTicket({ ID: 1, Accion: 'REALIZAR', Fecha_Soporte_Inicial: '2026-09-15T00:00:00' }),
+    rawActivoTicket({ ID: 2, Accion: 'REALIZAR', Fecha_Soporte_Inicial: '2026-11-20T00:00:00' }), // scheduled after today
+    rawActivoTicket({ ID: 3, Accion: 'CIERRE', Fecha_Soporte_Inicial: '2027-01-10T00:00:00' }),
+    rawActivoTicket({ ID: 4, Accion: 'REVISION CALIDAD', Fecha_Soporte_Inicial: '2027-01-10T00:00:00' }) // not a permitted acción
+  ];
+  const tickets = mapper.normalizeTickets(rows);
+  const opts = { acciones: mapper.ACTIVOS_SERVICIOS_ACCIONES };
+  const now = '2026-10-02';
+  const ranged = mapper.buildActivos(tickets, { fechaCreacionFrom: '2026-01-01', fechaCreacionTo: '2026-10-02', now }, opts);
+  assert.equal(ranged.kpis.totalAcciones, 1);
+  assert.equal(ranged.fechasFuturas.excluidosPosterior, 2);
+  assert.deepEqual(ranged.fechasFuturas.excluidosPorAccion, { REALIZAR: 1, CIERRE: 1 });
+  const all = mapper.buildActivos(tickets, { now }, opts);
+  assert.equal(all.kpis.totalAcciones, 3);
+  assert.equal(all.fechasFuturas.excluidosPosterior, 0);
+  assert.equal(all.fechasFuturas.futuros, 2);
+  assert.deepEqual(all.fechasFuturas.futurosPorAccion, { REALIZAR: 1, CIERRE: 1 });
+});
