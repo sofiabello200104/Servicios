@@ -41,7 +41,9 @@
   let _activosStale = true;
   let _segundoNivelStale = true;
 
+  let _updating = false;
   function setUpdatingState(isUpdating) {
+    _updating = isUpdating;
     const btn = document.getElementById('btn-actualizar-datos');
     if (!btn) return;
     btn.disabled = isUpdating;
@@ -64,6 +66,8 @@
     document.getElementById('views-root').style.display = 'none';
     const msgEl = document.getElementById('empty-state-error');
     if (msgEl) msgEl.textContent = message || '';
+    const hintEl = document.getElementById('empty-state-hint');
+    if (hintEl) hintEl.hidden = !message;
   }
 
   function showContent() {
@@ -267,6 +271,8 @@
 
     const btnSample = document.getElementById('btn-cargar-sample');
     if (btnSample) btnSample.addEventListener('click', cargarDatosEjemplo);
+    const btnRetry = document.getElementById('btn-reintentar');
+    if (btnRetry) btnRetry.addEventListener('click', () => { if (!_updating) actualizarDatos(); });
 
     ['filter-resumen-desde', 'filter-resumen-hasta', 'filter-resumen-periodo', 'filter-resumen-proceso', 'filter-resumen-producto'].forEach((id) => {
       const el = document.getElementById(id);
@@ -324,7 +330,7 @@
     }
   }
 
-  window.SOFIA_APP = { actualizarDatos, cargarDatosEjemplo };
+  window.SOFIA_APP = { actualizarDatos, cargarDatosEjemplo, isUpdating: () => _updating };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootstrap);

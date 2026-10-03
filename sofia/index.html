@@ -108,8 +108,10 @@
           o explora la interfaz con datos de ejemplo mientras tanto.
         </p>
         <p id="empty-state-error" class="text-sm text-rose-600 mt-2"></p>
+        <p id="empty-state-hint" class="text-xs text-slate-400 mt-2" hidden>El servidor de datos tarda cerca de 3 minutos en responder la primera vez. Si falló, pulsa Reintentar una sola vez y espera, sin abrir otras pestañas, para no saturarlo. Una vez cargado, las siguientes cargas son inmediatas.</p>
         <div class="flex items-center justify-center gap-3 mt-5 flex-wrap">
-          <button id="btn-abrir-parametrizacion" class="btn-primary">Abrir parametrización</button>
+          <button id="btn-reintentar" class="btn-primary">Reintentar</button>
+          <button id="btn-abrir-parametrizacion" class="btn-secondary">Abrir parametrización</button>
           <button id="btn-cargar-sample" class="btn-secondary">Cargar datos de ejemplo</button>
         </div>
       </section>

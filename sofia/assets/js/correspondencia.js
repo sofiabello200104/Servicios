@@ -111,9 +111,12 @@
   // Consulta en vivo con tope de espera; si el servidor OData no responde
   // (504, timeout, sin configurar) cae a la copia del Power BI INDICADORES
   // (data/sample-correspondencia.json) y lo avisa con una nota visible.
-  var LIVE_TIMEOUT_MS = 40000;
+  var LIVE_TIMEOUT_MS = 30000;
 
   async function fetchLive() {
+    // El servidor OData no tolera consultas simultáneas con las mismas
+    // credenciales: si los tickets se están cargando, no lo saturamos.
+    if (window.SOFIA_APP && window.SOFIA_APP.isUpdating && window.SOFIA_APP.isUpdating()) throw new Error('los tickets se están cargando y el servidor no admite consultas simultáneas');
     var cfgRes = await fetch('/api/config');
     var cfg = cfgRes.ok ? await cfgRes.json() : null;
     if (!cfg || !cfg.configured || !cfg.endpointUrl) throw new Error('OData no configurado');
