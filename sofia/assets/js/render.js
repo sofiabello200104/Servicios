@@ -924,7 +924,7 @@
   }
 
   function renderActivosCharts(result) {
-    // 1) Tickets Abiertos por Recurso (Servicios) -- horizontal bar, single
+    // 1) Tickets por Recurso -- horizontal bar, single
     // series, already sorted desc by buildActivos. Bar click selects/
     // deselects that resource (highlighted in a deeper blue, toggle on
     // second click) and narrows the table + summary panel below -- exact
@@ -1173,7 +1173,9 @@
   }
 
   function readActivosFilters() {
-    const filters = { requerimientos: readSelectedActRequerimientos(), recursos: readSelectedActRecursos() };
+    // acciones: the Acción selection also narrows both charts, the table and
+    // the summary (the acción KPI cards keep their full counts).
+    const filters = { requerimientos: readSelectedActRequerimientos(), recursos: readSelectedActRecursos(), acciones: _actSelectedAcciones.slice() };
     const creacionDesde = document.getElementById('filter-act-creacion-desde').value;
     const creacionHasta = document.getElementById('filter-act-creacion-hasta').value;
     if (creacionDesde) filters.fechaCreacionFrom = creacionDesde;

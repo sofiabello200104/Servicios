@@ -1393,10 +1393,19 @@
     var visibles = accionesPermitidas
       ? filtered.filter(function (t) { return accionesPermitidas.indexOf(t.accionNorm) !== -1; })
       : filtered;
+    // filters.acciones (the Acción selection; empty = all): narrows the
+    // charts and rows, but NOT porAccion / totalAcciones, so the acción KPI
+    // cards always show the full breakdown. "AGENDA" and "AGENDAR ENTREGA
+    // FINAL" match each other.
+    function canonAccion(a) { return a === 'AGENDAR ENTREGA FINAL' ? 'AGENDA ENTREGA FINAL' : a; }
+    var accionesSel = isAllSelector(filters.acciones) ? null : filters.acciones.map(canonAccion);
+    function enSeleccion(t) { return !accionesSel || accionesSel.indexOf(canonAccion(t.accionNorm)) !== -1; }
+
     var visiblesIds = new Set();
     visibles.forEach(function (t) {
       visiblesIds.add(t.id);
       accionCount[t.accionNorm] = (accionCount[t.accionNorm] || 0) + 1;
+      if (!enSeleccion(t)) return;
       productoCount[t.producto] = (productoCount[t.producto] || 0) + 1;
       if (hasCliente) clienteCount[t.cliente] = (clienteCount[t.cliente] || 0) + 1;
       if (ACTIVOS_SERVICIOS_ACCIONES.indexOf(t.accionNorm) !== -1) {
@@ -1414,7 +1423,7 @@
     // shape/sort as buildSegundoNivel's own rows. asunto: t.asunto is always
     // null here (Asunto column confirmed absent from the real feed, same
     // graceful degradation Segundo Nivel already established) -> UI shows "—".
-    var rows = visibles.map(function (t) {
+    var rows = visibles.filter(enSeleccion).map(function (t) {
       return {
         id: t.id,
         recursoAccion: recursoDeTicket.get(t), // group: team member, "Otro" or "Sin recurso"

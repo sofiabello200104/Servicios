@@ -1652,3 +1652,19 @@ test('buildActivos rows keep the real name (recursoNombre) for people grouped as
   assert.equal(byId[2].recursoAccion, 'Laura Sofia Bello Cabrera');
   assert.equal(byId[2].recursoNombre, 'Laura Sofia Bello Cabrera');
 });
+
+test('buildActivos filters.acciones narrows charts and rows but keeps the full acción breakdown for the KPI cards', () => {
+  const rows = [
+    rawActivoTicket({ ID: 1, Accion: 'REALIZAR', Recurso_Accion: 'Ana', Cliente: 'Acme' }),
+    rawActivoTicket({ ID: 2, Accion: 'CIERRE', Recurso_Accion: 'Luis', Cliente: 'Beta' }),
+    rawActivoTicket({ ID: 3, Accion: 'AGENDA ENTREGA FINAL', Recurso_Accion: 'Luis', Cliente: 'Beta' })
+  ];
+  const tickets = mapper.normalizeTickets(rows);
+  const opts = { acciones: mapper.ACTIVOS_SERVICIOS_ACCIONES };
+  const r = mapper.buildActivos(tickets, { acciones: ['CIERRE', 'AGENDAR ENTREGA FINAL'] }, opts);
+  assert.deepEqual(r.rows.map((x) => x.id), [2, 3]);
+  assert.deepEqual(r.recursosServicios, [{ label: 'Luis', value: 2 }]);
+  assert.deepEqual(r.porCliente, [{ label: 'BETA', value: 2 }]);
+  assert.equal(r.kpis.totalAcciones, 3);
+  assert.equal(r.porAccion.reduce((s, a) => s + a.value, 0), 3);
+});
