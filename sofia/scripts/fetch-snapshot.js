@@ -70,34 +70,48 @@ function save(name, obj) {
   return crypto.createHash('sha256').update(buf).digest('hex');
 }
 
+function note(level, msg) { console.log('::' + level + '::' + String(msg).replace(/\r?\n/g, ' ')); }
+
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const metaPath = path.join(OUT, 'meta.json');
   const prev = fs.existsSync(metaPath) ? JSON.parse(fs.readFileSync(metaPath, 'utf8')) : {};
-  const hashes = {};
+  const hashes = Object.assign({}, prev.hashes);
+  let failed = null;
 
-  // Tickets: si falla no se toca nada (se conserva el último snapshot bueno).
-  const tickets = await get(TEMPLATE);
-  console.log('tickets:', tickets.length);
-
-  const extraRows = [], failedSources = [];
-  for (const def of DS.CAPACIDAD_EXTRA_SOURCES) {
-    try {
-      const sel = [def.recursoField, def.fechaInicialField, def.horaInicialField, def.horaFinalField].join(',');
-      const rows = await get(def.templateName, sel);
-      rows.forEach((r) => extraRows.push(DS.normalizeExtraRow(r, def)));
-      console.log(def.fuente + ':', rows.length);
-    } catch (e) { console.error('Falló', def.fuente, e.message); failedSources.push(def.fuente); }
+  function commitMeta() {
+    if (JSON.stringify(hashes) !== JSON.stringify(prev.hashes)) {
+      fs.writeFileSync(metaPath, JSON.stringify({ updatedAt: new Date().toISOString(), hashes }, null, 2) + '\n');
+      console.log('Snapshot actualizado.');
+    } else console.log('Sin cambios.');
   }
-  hashes.tickets = save('tickets', { rows: tickets, extraRows, failedSources });
 
+  // 1) Correspondencia (tabla pequeña): sirve también de diagnóstico de
+  //    conectividad y se guarda aunque los tickets fallen.
+  const t0 = Date.now();
   try {
     const corr = await get('ID12019_Correo');
-    console.log('correspondencia:', corr.length);
+    note('notice', 'Correspondencia: ' + corr.length + ' filas en ' + Math.round((Date.now() - t0) / 1000) + ' s');
     hashes.correspondencia = save('correspondencia', { value: corr });
-  } catch (e) { console.error('Correspondencia no actualizada:', e.message); hashes.correspondencia = prev.hashes && prev.hashes.correspondencia; }
+  } catch (e) { note('error', 'Correspondencia falló: ' + e.message); failed = e; }
 
-  const changed = JSON.stringify(hashes) !== JSON.stringify(prev.hashes);
-  if (changed) fs.writeFileSync(metaPath, JSON.stringify({ updatedAt: new Date().toISOString(), hashes }, null, 2) + '\n');
-  console.log(changed ? 'Snapshot actualizado.' : 'Sin cambios.');
-})().catch((e) => { console.error(e.message); process.exit(1); });
+  // 2) Tickets + 4 fuentes de Capacidad: si fallan se conserva el último snapshot bueno.
+  try {
+    const t1 = Date.now();
+    const tickets = await get(TEMPLATE);
+    note('notice', 'Tickets: ' + tickets.length + ' filas en ' + Math.round((Date.now() - t1) / 1000) + ' s');
+    const extraRows = [], failedSources = [];
+    for (const def of DS.CAPACIDAD_EXTRA_SOURCES) {
+      try {
+        const sel = [def.recursoField, def.fechaInicialField, def.horaInicialField, def.horaFinalField].join(',');
+        const rows = await get(def.templateName, sel);
+        rows.forEach((r) => extraRows.push(DS.normalizeExtraRow(r, def)));
+        console.log(def.fuente + ':', rows.length);
+      } catch (e) { note('warning', def.fuente + ' falló: ' + e.message); failedSources.push(def.fuente); }
+    }
+    hashes.tickets = save('tickets', { rows: tickets, extraRows, failedSources });
+  } catch (e) { note('error', 'Tickets falló: ' + e.message); failed = e; }
+
+  commitMeta();
+  if (failed) process.exit(1);
+})().catch((e) => { note('error', e.message); process.exit(1); });

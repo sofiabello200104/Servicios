@@ -31,6 +31,7 @@ jobs:
           SOFIA_ODATA_TEMPLATE: ${{ secrets.SOFIA_ODATA_TEMPLATE }}
         run: node scripts/fetch-snapshot.js
       - name: Guardar si cambió
+        if: always()
         run: |
           git config user.name "sofia-snapshot-bot"
           git config user.email "actions@users.noreply.github.com"
