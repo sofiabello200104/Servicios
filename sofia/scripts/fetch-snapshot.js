@@ -20,7 +20,7 @@ const AUTH = 'Basic ' + Buffer.from((process.env.SOFIA_ODATA_USER || '') + ':' +
 const TEMPLATE = process.env.SOFIA_ODATA_TEMPLATE || 'ID12086_Tickets_medidor';
 const TIMEOUT_MS = 12 * 60 * 1000;
 
-if (!URL_BASE || !process.env.SOFIA_ODATA_USER) { console.error('Faltan SOFIA_ODATA_URL / SOFIA_ODATA_USER / SOFIA_ODATA_PASS'); process.exit(1); }
+if (!URL_BASE || !process.env.SOFIA_ODATA_USER) { console.log('::error::Faltan los secretos SOFIA_ODATA_URL / SOFIA_ODATA_USER / SOFIA_ODATA_PASS en GitHub (Settings > Secrets and variables > Actions)'); process.exit(1); }
 
 function toRows(d) {
   if (Array.isArray(d)) return d;
