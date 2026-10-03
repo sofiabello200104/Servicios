@@ -1317,6 +1317,13 @@
     // below -- matches "filters apply on top of the universe" from the spec.
     var universe = tickets.filter(function (t) { return t.estado === 1 && t.accionNorm !== 'CREAR'; });
     var displayName = resolveRecursoDisplayNames(universe.map(recursoAsignado));
+    // Real name, used for the detail (table / summary) even when the
+    // resource is grouped as "Otro" in filters and charts.
+    function nombreDe(t) {
+      var n = recursoAsignado(t);
+      if (n === 'Sin recurso') return n;
+      return (equipo && equipoByKey[recursoGroupKey(n)]) || displayName(n);
+    }
     function recursoDe(t) {
       var n = recursoAsignado(t);
       if (n === 'Sin recurso') return n;
@@ -1408,7 +1415,8 @@
     var rows = visibles.map(function (t) {
       return {
         id: t.id,
-        recursoAccion: recursoDeTicket.get(t),
+        recursoAccion: recursoDeTicket.get(t), // group: team member, "Otro" or "Sin recurso"
+        recursoNombre: nombreDe(t),            // the person's real name, for the detail
         cliente: t.cliente, // null while the Cliente column is absent -> UI shows "—"
         producto: t.producto,
         accion: t.accionNorm,

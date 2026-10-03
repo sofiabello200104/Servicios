@@ -910,7 +910,9 @@
         const label = chart.data.labels[elements[0].index];
         _actSelectedResource = (_actSelectedResource === label) ? null : label;
         _actTablePage = 1;
-        rerenderActivosWithCurrentFilters();
+        // Deferred: redrawing destroys this chart, which Chart.js is still
+        // dispatching the click on ("reading 'handleEvent'" otherwise).
+        setTimeout(rerenderActivosWithCurrentFilters, 0);
       }
     });
 
@@ -992,7 +994,9 @@
           ? _actSelectedAcciones.filter((x) => x !== label)
           : _actSelectedAcciones.concat([label]);
         _actTablePage = 1;
-        rerenderActivosWithCurrentFilters();
+        // Deferred: redrawing destroys this chart, which Chart.js is still
+        // dispatching the click on ("reading 'handleEvent'" otherwise).
+        setTimeout(rerenderActivosWithCurrentFilters, 0);
       }
     });
 
@@ -1209,7 +1213,8 @@
       ? rows.map((r) => (
           '<tr>' +
           '<td class="det-id">' + escapeHtml(r.id) + '</td>' +
-          '<td>' + escapeHtml(r.recursoAccion) + '</td>' +
+          // Real name even for people grouped as "Otro" in filters/charts.
+          '<td>' + escapeHtml(r.recursoNombre || r.recursoAccion) + '</td>' +
           '<td>' + (r.cliente == null ? '—' : escapeHtml(r.cliente)) + '</td>' +
           '<td>' + escapeHtml(r.producto) + '</td>' +
           '<td>' + escapeHtml(r.accion) + '</td>' +
@@ -1266,20 +1271,24 @@
 
   /* -------- Summary panel: "Detalle del recurso seleccionado" -------- */
 
-  // With an Acción selected (filter or bar click), the panel becomes a
-  // summary of that acción's tickets grouped by assigned resource (count,
-  // desc). Otherwise it keeps the single-resource detail.
   // Summary of the tickets behind the current Acción selection (all 4 by
-  // default): grouped by assigned resource, or -- when a resource bar is
-  // selected -- that resource's tickets grouped by acción.
+  // default), grouped by the person's real name -- people outside the team
+  // are listed by name with an "Otro" tag. With a team member's bar
+  // selected, that person's tickets are grouped by acción instead; with the
+  // "Otro" bar selected, by person.
   function renderActAccionResumen(panel, result) {
     const rows = result.rows.filter((r) =>
       (!_actSelectedAcciones.length || _actSelectedAcciones.indexOf(r.accion) !== -1) &&
       (!_actSelectedResource || r.recursoAccion === _actSelectedResource));
-    const key = _actSelectedResource ? 'accion' : 'recursoAccion';
+    const porAccion = _actSelectedResource && _actSelectedResource !== M.RECURSO_OTRO;
     const counts = {};
-    rows.forEach((r) => { counts[r[key]] = (counts[r[key]] || 0) + 1; });
-    const grupos = Object.keys(counts).map((k) => ({ label: k, tickets: counts[k] }))
+    const esOtro = {};
+    rows.forEach((r) => {
+      const k = porAccion ? r.accion : (r.recursoNombre || r.recursoAccion);
+      counts[k] = (counts[k] || 0) + 1;
+      if (!porAccion && r.recursoAccion === M.RECURSO_OTRO) esOtro[k] = true;
+    });
+    const grupos = Object.keys(counts).map((k) => ({ label: k, tickets: counts[k], otro: !!esOtro[k] }))
       .sort((a, b) => (b.tickets - a.tickets) || a.label.localeCompare(b.label));
     const accionesTxt = _actSelectedAcciones.length ? _actSelectedAcciones.join(', ') : 'las 4 acciones';
     panel.innerHTML =
@@ -1287,8 +1296,9 @@
       '<span class="text-xs text-slate-400 font-semibold ml-1">tickets en ' + escapeHtml(accionesTxt) + '</span></div>' +
       (grupos.length
         ? '<table class="w-full text-[12px]"><thead><tr class="text-left text-slate-500">' +
-            '<th class="py-1 font-semibold">' + (_actSelectedResource ? 'Acción' : 'Recurso asignado') + '</th><th class="py-1 font-semibold text-right">Tickets</th></tr></thead><tbody>' +
+            '<th class="py-1 font-semibold">' + (porAccion ? 'Acción' : 'Recurso asignado') + '</th><th class="py-1 font-semibold text-right">Tickets</th></tr></thead><tbody>' +
             grupos.map((g) => '<tr class="border-t border-slate-100"><td class="py-1.5 text-slate-800">' + escapeHtml(g.label) +
+              (g.otro ? ' <span class="ml-1 px-1.5 py-0.5 rounded bg-slate-100 text-[10px] font-semibold text-slate-500">Otro</span>' : '') +
               '</td><td class="py-1.5 text-right font-semibold text-slate-900">' + formatEntero(g.tickets) + '</td></tr>').join('') +
           '</tbody></table>'
         : '<p class="text-[12px] text-slate-500">Sin tickets para la selección actual.</p>');
@@ -1300,7 +1310,7 @@
     const title = document.getElementById('act-resumen-title');
     if (title) {
       title.textContent = _actSelectedResource
-        ? 'Resumen por acción — ' + _actSelectedResource
+        ? (_actSelectedResource === M.RECURSO_OTRO ? 'Resumen — personas fuera del equipo' : 'Resumen por acción — ' + _actSelectedResource)
         : 'Resumen por recurso' + (_actSelectedAcciones.length === 1 ? ' — ' + _actSelectedAcciones[0] : _actSelectedAcciones.length ? ' — ' + _actSelectedAcciones.length + ' acciones' : '');
     }
     renderActAccionResumen(panel, result);
@@ -1495,7 +1505,9 @@
         if (!elements.length) return;
         const label = chart.data.labels[elements[0].index];
         _snSelectedResource = (_snSelectedResource === label) ? null : label;
-        rerenderSegundoNivelWithCurrentFilters();
+        // Deferred: redrawing destroys this chart, which Chart.js is still
+        // dispatching the click on ("reading 'handleEvent'" otherwise).
+        setTimeout(rerenderSegundoNivelWithCurrentFilters, 0);
       }
     });
 

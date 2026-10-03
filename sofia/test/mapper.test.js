@@ -1639,3 +1639,16 @@ test('buildActivos with opts.acciones: charts/rows only the 4 Primer Nivel accio
   assert.deepEqual(r.rows.map((x) => x.id), [1, 2]);
   assert.equal(r.recursosServicios.reduce((s, x) => s + x.value, 0), 2);
 });
+
+test('buildActivos rows keep the real name (recursoNombre) for people grouped as "Otro"', () => {
+  const rows = [
+    rawActivoTicket({ ID: 1, Accion: 'REALIZAR', Recurso_Accion: 'PERSONA EXTERNA' }),
+    rawActivoTicket({ ID: 2, Accion: 'REALIZAR', Recurso_Accion: 'LAURA SOFIA BELLO CABRERA' })
+  ];
+  const r = mapper.buildActivos(mapper.normalizeTickets(rows), {}, { equipo: ['Laura Sofia Bello Cabrera'] });
+  const byId = Object.fromEntries(r.rows.map((x) => [x.id, x]));
+  assert.equal(byId[1].recursoAccion, 'Otro');
+  assert.equal(byId[1].recursoNombre, 'Persona Externa');
+  assert.equal(byId[2].recursoAccion, 'Laura Sofia Bello Cabrera');
+  assert.equal(byId[2].recursoNombre, 'Laura Sofia Bello Cabrera');
+});
