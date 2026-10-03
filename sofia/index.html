@@ -331,7 +331,9 @@
         </div>
 
         <!-- KPIs -->
-        <div id="kpi-row-activos" class="card-loading-target grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6"></div>
+        <!-- Tickets Activos + una tarjeta por cada una de las 4 acciones; clic en una
+             tarjeta de acción = filtrar esa acción (reemplaza la gráfica por acción) -->
+        <div id="kpi-row-activos" class="card-loading-target grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6"></div>
 
         <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -342,17 +344,6 @@
           <div class="card p-5 card-loading-target">
             <h3 class="text-sm font-bold text-slate-800 mb-3">Recuento de Tickets por Cliente</h3>
             <div class="chart-box-tall chart-scroll"><div class="chart-scroll-inner"><canvas id="chart-act-cliente"></canvas></div></div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Tickets Abiertos por Acción (General)</h3>
-            <div class="chart-box-tall"><canvas id="chart-act-accion-general"></canvas></div>
-          </div>
-          <div class="card p-5 card-loading-target">
-            <h3 class="text-sm font-bold text-slate-800 mb-3">Distribución de Tickets por Producto</h3>
-            <div class="chart-box-legend"><canvas id="chart-act-producto"></canvas></div>
           </div>
         </div>
 

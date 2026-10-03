@@ -1634,7 +1634,7 @@ test('buildActivos with opts.acciones: charts/rows only the 4 Primer Nivel accio
     rawActivoTicket({ ID: 4, Accion: 'OTRA ACCION' })
   ];
   const r = mapper.buildActivos(mapper.normalizeTickets(rows), {}, { acciones: mapper.ACTIVOS_SERVICIOS_ACCIONES });
-  assert.deepEqual(r.kpis, { total: 4, servicios: 2, calidad: 1 });
+  assert.deepEqual(r.kpis, { total: 4, servicios: 2, calidad: 1, totalAcciones: 2 });
   assert.deepEqual(r.porAccion.map((a) => a.label).sort(), ['AGENDAR ENTREGA FINAL', 'REALIZAR']);
   assert.deepEqual(r.rows.map((x) => x.id), [1, 2]);
   assert.equal(r.recursosServicios.reduce((s, x) => s + x.value, 0), 2);

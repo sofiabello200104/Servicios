@@ -1393,7 +1393,9 @@
     var visibles = accionesPermitidas
       ? filtered.filter(function (t) { return accionesPermitidas.indexOf(t.accionNorm) !== -1; })
       : filtered;
+    var visiblesIds = new Set();
     visibles.forEach(function (t) {
+      visiblesIds.add(t.id);
       accionCount[t.accionNorm] = (accionCount[t.accionNorm] || 0) + 1;
       productoCount[t.producto] = (productoCount[t.producto] || 0) + 1;
       if (hasCliente) clienteCount[t.cliente] = (clienteCount[t.cliente] || 0) + 1;
@@ -1426,7 +1428,9 @@
     rows.sort(function (a, b) { return String(a.id).localeCompare(String(b.id), undefined, { numeric: true }); });
 
     return {
-      kpis: { total: totalIds.size, servicios: serviciosIds.size, calidad: calidadIds.size },
+      // totalAcciones = distinct tickets in the permitted acciones (= total
+      // when opts.acciones is not given).
+      kpis: { total: totalIds.size, servicios: serviciosIds.size, calidad: calidadIds.size, totalAcciones: visiblesIds.size },
       recursosServicios: sortedCounts(recursosServiciosCount),
       porCliente: hasCliente ? sortedCounts(clienteCount) : [],
       porAccion: porAccion,

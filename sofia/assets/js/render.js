@@ -730,17 +730,13 @@
   // the table + summary panel below, never the charts themselves. Same
   // click-to-select pattern as Segundo Nivel's _snSelectedResource.
   let _actSelectedResource = null;
-  // Set by clicking a bar on chart-act-accion-general -- narrows only the
-  // table below (never the summary panel, which is resource-specific), so
-  // the table's own Recurso column becomes "el detalle de los recursos"
-  // behind that acción. ANDs with _actSelectedResource above when both are
-  // set (independent selections, same table).
-  // Acciones picked in the Acción multi-select (or toggled by clicking a bar
-  // of "Tickets Abiertos por Acción (General)"); empty = all.
+  // Acciones picked in the Acción multi-select or toggled by clicking an
+  // acción KPI card; empty = all 4. Narrows the table and the summary panel
+  // (ANDed with _actSelectedResource when both are set).
   let _actSelectedAcciones = [];
 
-  // KPI cards with a spec-mandated accent color per card (Tickets Abiertos /
-  // Abiertos Calidad) -- kpiCard()'s chip/stripe system
+  // KPI cards with an accent color per card (Tickets Activos / one per
+  // acción) -- kpiCard()'s chip/stripe system
   // is built for ok/warn/bad status, not an arbitrary per-card hex, so these
   // are built inline (same approach render.js already uses for Capacidad's
   // "% Utilización Global" card, which needed its own 4-state badge color).
@@ -801,16 +797,55 @@
     return s;
   }
 
-  // Tickets Activos = every active ticket created inside the Fecha de
-  // creación range (plus Recurso/Requerimiento filters), any acción;
-  // Servicios / Calidad = its two acción buckets.
+  // Tickets Activos = active tickets in the 4 Primer Nivel acciones
+  // (inside the Fecha de creación range + Recurso/Requerimiento filters),
+  // then one card per acción. The acción cards replace the removed "Tickets
+  // Abiertos por Acción" chart: clicking one toggles that acción in the
+  // Acción filter (selected cards get a ring, the rest fade).
+  const ACT_ACCION_CARDS = [
+    { title: 'En Realizar', accion: 'REALIZAR', color: '#2563EB' },
+    { title: 'En Cierre', accion: 'CIERRE', color: '#0EA5E9' },
+    { title: 'En Entrega Final', accion: 'ENTREGA FINAL', color: '#0284C7' },
+    { title: 'Por Agendar Entrega Final', accion: 'AGENDAR ENTREGA FINAL', color: '#A855F7' }
+  ];
+
   function renderActivosKpis(result) {
-    const cards = [
-      activoKpiCard('Tickets Activos', result.kpis.total, '#1E293B'),
-      activoKpiCard('Abiertos Servicios', result.kpis.servicios, '#2563EB'),
-      activoKpiCard('Abiertos Calidad', result.kpis.calidad, '#7C3AED')
-    ];
-    document.getElementById('kpi-row-activos').innerHTML = cards.join('');
+    const opciones = actAccionOptions(result); // same labels as the Acción filter
+    const count = (accion) => result.porAccion
+      .filter((a) => a.label === accion || (accion === 'AGENDAR ENTREGA FINAL' && a.label === 'AGENDA ENTREGA FINAL'))
+      .reduce((s, a) => s + a.value, 0);
+    const cards = [activoKpiCard('Tickets Activos', formatEntero(result.kpis.totalAcciones), '#1E293B')];
+    ACT_ACCION_CARDS.forEach((c) => {
+      const value = opciones.find((o) => o === c.accion || (c.accion === 'AGENDAR ENTREGA FINAL' && o === 'AGENDA ENTREGA FINAL')) || c.accion;
+      const selected = _actSelectedAcciones.indexOf(value) !== -1;
+      const faded = _actSelectedAcciones.length && !selected;
+      cards.push(
+        '<button type="button" class="card p-4 text-left w-full transition' + (selected ? ' ring-2 ring-offset-1' : '') + '"' +
+        ' data-act-accion="' + escapeHtml(value) + '" aria-pressed="' + selected + '"' +
+        ' title="Clic para filtrar ' + escapeHtml(value) + '"' +
+        ' style="' + (selected ? '--tw-ring-color:' + c.color + ';' : '') + (faded ? 'opacity:.55;' : '') + '">' +
+        '<div class="text-[12px] font-semibold text-slate-700 leading-tight">' + c.title + '</div>' +
+        '<div class="mt-3 text-2xl font-extrabold kpi-num" style="color:' + c.color + ';">' + formatEntero(count(c.accion)) + '</div>' +
+        '</button>'
+      );
+    });
+    const row = document.getElementById('kpi-row-activos');
+    row.innerHTML = cards.join('');
+    if (!row.dataset.wired) {
+      row.dataset.wired = '1';
+      row.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-act-accion]');
+        if (!btn) return;
+        const accion = btn.getAttribute('data-act-accion');
+        _actSelectedAcciones = _actSelectedAcciones.indexOf(accion) !== -1
+          ? _actSelectedAcciones.filter((x) => x !== accion)
+          : _actSelectedAcciones.concat([accion]);
+        // Picking all 4 is the same as "Todas".
+        if (_actSelectedAcciones.length >= ACT_ACCION_CARDS.length) _actSelectedAcciones = [];
+        _actTablePage = 1;
+        rerenderActivosWithCurrentFilters();
+      });
+    }
   }
 
   // Acción multi-select: only the 4 Primer Nivel acciones, names only.
@@ -965,54 +1000,6 @@
       },
       dataLabels: LIST_BAR_DATA_LABELS
     });
-
-    // 3) Tickets Abiertos por Acción (General) -- horizontal bar, whole
-    // universe, per-bar colorMapping already resolved by buildActivos
-    // (Chart.js accepts an array for backgroundColor, one color per bar).
-    // Bar click selects/deselects that acción (toggle on second click,
-    // same pattern as the Recurso chart above) and narrows the table below
-    // -- its Recurso column becomes the "detalle de los recursos" for the
-    // selected acción. Unlike the Recurso chart, each bar already has its
-    // own fixed color (ACTIVOS_ACCION_COLORS), so "selected" can't reuse a
-    // single highlight color -- instead every OTHER bar is faded (alpha
-    // suffix on its hex color) while a selection is active.
-    C.barChart('chart-act-accion-general', [{
-      label: 'Tickets',
-      data: result.porAccion.map((a) => a.value),
-      backgroundColor: result.porAccion.map((a) => (
-        !_actSelectedAcciones.length || _actSelectedAcciones.indexOf(a.label) !== -1 ? a.color : a.color + '55'
-      ))
-    }], {
-      horizontal: true, legend: false, labels: result.porAccion.map((a) => a.label),
-      yOpts: { ticks: { autoSkip: false, font: { size: 10 } } },
-      dataLabels: true,
-      onClick: (evt, elements, chart) => {
-        if (!elements.length) return;
-        const label = chart.data.labels[elements[0].index];
-        // Toggle that acción in the multi-selection.
-        _actSelectedAcciones = _actSelectedAcciones.indexOf(label) !== -1
-          ? _actSelectedAcciones.filter((x) => x !== label)
-          : _actSelectedAcciones.concat([label]);
-        _actTablePage = 1;
-        // Deferred: redrawing destroys this chart, which Chart.js is still
-        // dispatching the click on ("reading 'handleEvent'" otherwise).
-        setTimeout(rerenderActivosWithCurrentFilters, 0);
-      }
-    });
-
-    // 4) Distribución de Tickets por Producto -- doughnut, cutout 60%,
-    // percentage shown (doughnut()'s showPercent). Colors cycle through the
-    // shared PRODUCTO_COLORS palette by index, same modulo pattern used for
-    // any doughnut over an unbounded category count (no top-8/OTROS
-    // bucketing here -- the active universe is small).
-    const productoColors = result.porProducto.map((_, i) => C.PRODUCTO_COLORS[i % C.PRODUCTO_COLORS.length]);
-    C.doughnut(
-      'chart-act-producto',
-      result.porProducto.map((p) => p.label),
-      result.porProducto.map((p) => p.value),
-      productoColors,
-      { showPercent: true, cutout: '60%', legendPosition: 'right' }
-    );
   }
 
   /* -------- Requerimientos / Opciones: searchable multiselect -------- */
