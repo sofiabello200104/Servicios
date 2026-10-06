@@ -17,6 +17,9 @@ function req(label, path, headers) {
       res.on('end', () => resolve(label + ' → HTTP ' + res.statusCode + ' · cabeceras ' + Math.round(first / 1000) + ' s · total ' + Math.round((Date.now() - t0) / 1000) + ' s · ' + n + ' bytes · ' + (res.headers['content-type'] || '')));
       res.on('error', (e) => resolve(label + ' → error ' + e.message));
     });
+    // TCP keep-alive: algunos balanceadores cortan conexiones 'inactivas'
+    // (~4-5 min) mientras el servidor prepara la respuesta.
+    r.on('socket', (sock) => sock.setKeepAlive(true, 15000));
     r.setTimeout(T, () => r.destroy(new Error('sin respuesta en ' + T / 1000 + ' s')));
     r.on('error', (e) => resolve(label + ' → ' + e.message + ' tras ' + Math.round((Date.now() - t0) / 1000) + ' s'));
     r.end();
