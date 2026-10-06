@@ -46,6 +46,9 @@ function request(url) {
         catch (e) { reject(new Error('Respuesta no válida: ' + e.message)); }
       });
     });
+    // TCP keep-alive: sin esto un equipo de red corta la conexión por
+    // 'inactiva' a los ~4,5 min, y el servidor tarda ~7 min en responder tickets.
+    req.on('socket', (sock) => sock.setKeepAlive(true, 15000));
     req.setTimeout(TIMEOUT_MS, () => req.destroy(new Error('tiempo de espera agotado (' + TIMEOUT_MS / 60000 + ' min)')));
     req.on('error', reject);
     req.end();

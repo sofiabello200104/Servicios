@@ -139,6 +139,10 @@ module.exports = function handler(req, res) {
     });
   });
 
+  // TCP keep-alive: evita que la red corte la conexión por inactividad
+  // mientras el servidor OData prepara la respuesta.
+  proxyReq.on('socket', (sock) => sock.setKeepAlive(true, 15000));
+
   proxyReq.on('timeout', () => {
     proxyReq.destroy();
     if (!res.headersSent) sendJson(res, 504, { error: 'Timeout al conectar con el servidor OData.' });

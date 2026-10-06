@@ -244,6 +244,7 @@ function fetchODataUpstream(target, authUser, authPass) {
       proxyRes.on('error', () => resolve({ ok: false, status: 502, error: 'Error de red al conectar con el servidor OData.' }));
     });
 
+    proxyReq.on('socket', (sock) => sock.setKeepAlive(true, 15000)); // evita cortes por inactividad
     proxyReq.on('timeout', () => {
       proxyReq.destroy();
       resolve({ ok: false, status: 504, error: 'Timeout al conectar con el servidor OData.' });
