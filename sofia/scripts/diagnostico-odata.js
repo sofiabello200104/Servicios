@@ -5,7 +5,7 @@ const https = require('https');
 const zlib = require('zlib');
 const BASE = (process.env.SOFIA_ODATA_URL || '').replace(/\/+$/, '');
 const AUTH = 'Basic ' + Buffer.from((process.env.SOFIA_ODATA_USER || '') + ':' + (process.env.SOFIA_ODATA_PASS || '')).toString('base64');
-const T = 150000;
+const T = 600000;
 
 function req(label, path, headers) {
   return new Promise((resolve) => {
@@ -26,7 +26,9 @@ function req(label, path, headers) {
 (async () => {
   const e = 'ID12019_Correo';
   const pbi = { Authorization: AUTH, Accept: 'application/json;odata.metadata=minimal', 'OData-Version': '4.0', 'OData-MaxVersion': '4.0', 'Accept-Encoding': 'gzip' };
-  const tests = [
+  const tests = process.env.SOLO_TICKETS ? [
+    ['T ID12086_Tickets_medidor como SOFIA', '/ID12086_Tickets_medidor?$format=json', { Authorization: AUTH, Accept: 'application/json' }]
+  ] : [
     ['A $metadata (Basic)', '/$metadata', { Authorization: AUTH }],
     ['B ' + e + ' como SOFIA ($format=json, Basic)', '/' + e + '?$format=json', { Authorization: AUTH, Accept: 'application/json' }],
     ['C ' + e + ' como Power BI (cabeceras OData v4, sin $format)', '/' + e, pbi],

@@ -1,7 +1,12 @@
 name: Diagnóstico OData
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      solo_tickets:
+        description: 'Medir solo la tabla de tickets'
+        required: false
+        default: ''
 
 jobs:
   diagnostico:
@@ -17,4 +22,5 @@ jobs:
           SOFIA_ODATA_URL: ${{ secrets.SOFIA_ODATA_URL }}
           SOFIA_ODATA_USER: ${{ secrets.SOFIA_ODATA_USER }}
           SOFIA_ODATA_PASS: ${{ secrets.SOFIA_ODATA_PASS }}
+          SOLO_TICKETS: ${{ github.event.inputs.solo_tickets }}
         run: node sofia/scripts/diagnostico-odata.js
