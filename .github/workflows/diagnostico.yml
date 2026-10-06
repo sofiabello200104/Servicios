@@ -1,0 +1,20 @@
+name: Diagnóstico OData
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  diagnostico:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Probar formas de consulta
+        env:
+          SOFIA_ODATA_URL: ${{ secrets.SOFIA_ODATA_URL }}
+          SOFIA_ODATA_USER: ${{ secrets.SOFIA_ODATA_USER }}
+          SOFIA_ODATA_PASS: ${{ secrets.SOFIA_ODATA_PASS }}
+        run: node sofia/scripts/diagnostico-odata.js
