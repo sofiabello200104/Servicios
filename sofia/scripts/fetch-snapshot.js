@@ -81,7 +81,7 @@ function note(level, msg) { console.log('::' + level + '::' + String(msg).replac
   let failed = null;
 
   function commitMeta() {
-    if (JSON.stringify(hashes) !== JSON.stringify(prev.hashes)) {
+    if (Object.keys(hashes).length && JSON.stringify(hashes) !== JSON.stringify(prev.hashes)) {
       fs.writeFileSync(metaPath, JSON.stringify({ updatedAt: new Date().toISOString(), hashes }, null, 2) + '\n');
       console.log('Snapshot actualizado.');
     } else console.log('Sin cambios.');

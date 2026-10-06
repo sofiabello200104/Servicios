@@ -5,8 +5,8 @@ name: Copia automática de datos (OData)
 # no depende de esperar al servidor OData. No toca `main` ni genera despliegues.
 on:
   schedule:
-    # Lunes a viernes, cada hora de 7:15 a 18:15 (hora Colombia = UTC-5)
-    - cron: '15 12-23 * * 1-5'
+    # Lunes a viernes, cada 2 horas de 7:15 a 17:15 (hora Colombia = UTC-5)
+    - cron: '15 12-22/2 * * 1-5'
   workflow_dispatch: {}
 
 permissions:
