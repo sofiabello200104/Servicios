@@ -1032,10 +1032,10 @@
     };
     let html = '';
     if (f && f.excluidosPosterior > 0) {
-      html = '<strong>Con el rango actual</strong> quedan fuera <strong>' + formatEntero(f.excluidosPosterior) + '</strong> tickets con soporte programado después del ' +
+      html = '<strong>Con el rango actual</strong> quedan fuera <strong>' + formatEntero(f.excluidosPosterior) + '</strong> tickets con fecha de acción posterior al ' +
         escapeHtml(isoToDMY(f.hasta)) + escapeHtml(desglose(f.excluidosPorAccion)) + '. Amplíe la fecha «hasta» para incluirlos.';
     } else if (f && f.futuros > 0) {
-      html = '<strong>El total actual incluye</strong> <strong>' + formatEntero(f.futuros) + '</strong> tickets con soporte programado después de hoy, ' +
+      html = '<strong>El total actual incluye</strong> <strong>' + formatEntero(f.futuros) + '</strong> tickets con fecha de acción posterior a hoy, ' +
         escapeHtml(isoToDMY(f.hoy)) + escapeHtml(desglose(f.futurosPorAccion)) + '.';
     }
     el.innerHTML = html;
@@ -1194,6 +1194,69 @@
     }
   }
 
+  /* -------- Cliente: searchable multiselect (same widget as Recurso) -------- */
+  function readSelectedActClientes() {
+    return Array.from(document.querySelectorAll(`#filter-${P}-cliente-list .${P}-cliente-opt:checked`)).map((el) => el.value);
+  }
+  function updateActClienteTriggerLabel() {
+    const trigger = document.getElementById(`filter-${P}-cliente-trigger`);
+    if (!trigger) return;
+    const checked = readSelectedActClientes();
+    trigger.textContent = !checked.length ? 'Todos los clientes' : checked.length === 1 ? checked[0] : checked.length + ' seleccionados';
+  }
+  function renderActClienteOptions(options) {
+    const list = document.getElementById(`filter-${P}-cliente-list`);
+    if (!list) return;
+    const checkedBefore = new Set(readSelectedActClientes());
+    list.innerHTML = options.map((o) => (
+      `<label class="multi-select-option"><input type="checkbox" class="${P}-cliente-opt" value="` + escapeHtml(o) + '"' +
+      (checkedBefore.has(o) ? ' checked' : '') + ' /> ' + escapeHtml(o) + '</label>'
+    )).join('');
+  }
+  let _actClienteWired = false;
+  function wireActClienteMultiSelect() {
+    if (_actClienteWired) return;
+    _actClienteWired = true;
+    const trigger = document.getElementById(`filter-${P}-cliente-trigger`);
+    const panel = document.getElementById(`filter-${P}-cliente-panel`);
+    const allCheckbox = document.getElementById(`filter-${P}-cliente-all`);
+    const list = document.getElementById(`filter-${P}-cliente-list`);
+    const search = document.getElementById(`filter-${P}-cliente-search`);
+    if (!trigger || !panel || !allCheckbox || !list) return;
+    trigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      panel.hidden = !panel.hidden;
+      trigger.setAttribute('aria-expanded', String(!panel.hidden));
+    });
+    document.addEventListener('click', (e) => {
+      if (!panel.hidden && !panel.contains(e.target) && e.target !== trigger) {
+        panel.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+    allCheckbox.addEventListener('change', () => {
+      if (allCheckbox.checked) list.querySelectorAll(`.${P}-cliente-opt`).forEach((el) => { el.checked = false; });
+      updateActClienteTriggerLabel();
+      _actTablePage = 1;
+      rerenderActivosWithCurrentFilters();
+    });
+    list.addEventListener('change', (e) => {
+      if (!e.target.classList.contains(`${P}-cliente-opt`)) return;
+      allCheckbox.checked = list.querySelectorAll(`.${P}-cliente-opt:checked`).length === 0;
+      updateActClienteTriggerLabel();
+      _actTablePage = 1;
+      rerenderActivosWithCurrentFilters();
+    });
+    if (search) {
+      search.addEventListener('input', () => {
+        const q = search.value.trim().toLowerCase();
+        list.querySelectorAll(`.${P}-cliente-opt`).forEach((el) => {
+          el.parentElement.style.display = (!q || el.parentElement.textContent.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+        });
+      });
+    }
+  }
+
   /* -------- Filters: populate / read -------- */
 
   function populateActivosFilters(tickets) {
@@ -1210,12 +1273,14 @@
     }
     renderActRecursoOptions(defaults.recursoOptions);
     updateActRecursoTriggerLabel();
+    renderActClienteOptions(defaults.clienteOptions || []);
+    updateActClienteTriggerLabel();
   }
 
   function readActivosFilters() {
     // acciones: the Acción selection also narrows both charts, the table and
     // the summary (the acción KPI cards keep their full counts).
-    const filters = { requerimientos: readSelectedActRequerimientos(), recursos: readSelectedActRecursos(), acciones: _actSelectedAcciones.slice() };
+    const filters = { requerimientos: readSelectedActRequerimientos(), recursos: readSelectedActRecursos(), clientes: readSelectedActClientes(), acciones: _actSelectedAcciones.slice() };
     const creacionDesde = document.getElementById(`filter-${P}-creacion-desde`).value;
     const creacionHasta = document.getElementById(`filter-${P}-creacion-hasta`).value;
     if (creacionDesde) filters.fechaCreacionFrom = creacionDesde;
@@ -1233,7 +1298,7 @@
      the first paginated table in the app -- a small local page-index module
      variable + slice + Prev/Next, not a generic/reusable component. */
 
-  const ACT_TABLE_COLUMNS = ['ID', 'Recurso', 'Cliente', 'Producto', 'Accion', 'Asunto'];
+  const ACT_TABLE_COLUMNS = ['ID', 'Recurso', 'Cliente', 'Producto', 'Accion', 'Activo desde', 'Asunto'];
   const ACT_TABLE_PAGE_SIZE = 10;
   let _actTablePage = 1;
 
@@ -1247,6 +1312,7 @@
           '<td>' + (r.cliente == null ? '—' : escapeHtml(r.cliente)) + '</td>' +
           '<td>' + escapeHtml(r.producto) + '</td>' +
           '<td>' + escapeHtml(r.accion) + '</td>' +
+          '<td class="whitespace-nowrap">' + (r.fechaAccion ? escapeHtml(isoToDMY(r.fechaAccion)) : '—') + '</td>' +
           '<td>' + (r.asunto == null ? '—' : escapeHtml(r.asunto)) + '</td>' +
           '</tr>'
         )).join('')
@@ -1403,6 +1469,10 @@
     const recAllCheckbox = document.getElementById(`filter-${P}-recurso-all`);
     if (recAllCheckbox) recAllCheckbox.checked = true;
     updateActRecursoTriggerLabel();
+    document.querySelectorAll(`#filter-${P}-cliente-list .${P}-cliente-opt`).forEach((el) => { el.checked = false; });
+    const cliAllCheckbox = document.getElementById(`filter-${P}-cliente-all`);
+    if (cliAllCheckbox) cliAllCheckbox.checked = true;
+    updateActClienteTriggerLabel();
     _actSelectedResource = null;
     _actSelectedAcciones = [];
     _actTablePage = 1;
@@ -1420,6 +1490,7 @@
     wireActAccionMultiSelect();
     wireActRequerimientosMultiSelect();
     wireActRecursoMultiSelect();
+    wireActClienteMultiSelect();
     wireActTablePager();
   }
 

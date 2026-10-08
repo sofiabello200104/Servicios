@@ -1754,3 +1754,23 @@ test('buildDashboardCentral: real OData names Fecha_Inicial_Diagnostico_Calidad 
   assert.deepEqual(d.linea.series.map((s) => [s.accion, s.disponible, s.total]),
     [['REVISION CALIDAD', true, 2], ['REVISION DEV', true, 1], ['REVISION SOLUCION', true, 1]]);
 });
+
+test('buildActivos: el rango de fechas usa la fecha de la acción actual; filtro de clientes', () => {
+  const base = { Estado: 1, Proceso: 'Mantenimiento', Recurso_Accion: 'Ana Ruiz', Fecha_Soporte_Inicial: '2026-08-01',
+    Fecha_Soporte_Final: '2026-08-01', Fecha_Entrega_Inicial: null, Fecha_Entrega_Final: null,
+    Fecha_Inicial_Diagnostico_Calidad: null, Fecha_DEV_Inicial: null, Fecha_inicial_Revision_Solucion: null, Cliente: 'A' };
+  const rows = [
+    Object.assign({}, base, { ID: 1, Accion: 'REALIZAR', Fecha_Soporte_Inicial: '2026-09-10' }),
+    Object.assign({}, base, { ID: 2, Accion: 'REVISION CALIDAD', Fecha_Inicial_Diagnostico_Calidad: '2026-09-11', Cliente: 'B' }),
+    Object.assign({}, base, { ID: 3, Accion: 'REVISION DEV', Fecha_DEV_Inicial: '2026-09-12' }),
+    Object.assign({}, base, { ID: 4, Accion: 'ENTREGA FINAL', Fecha_Entrega_Inicial: '2026-09-13' }),
+    Object.assign({}, base, { ID: 5, Accion: 'CIERRE', Fecha_Entrega_Final: '2026-09-14' }),
+    Object.assign({}, base, { ID: 6, Accion: 'REVISION SOLUCION' }) // sin fecha propia -> Soporte Inicial (agosto)
+  ];
+  const t = mapper.normalizeTickets(rows);
+  const sept = mapper.buildActivos(t, { fechaCreacionFrom: '2026-09-01', fechaCreacionTo: '2026-09-30' }, {});
+  assert.equal(sept.kpis.total, 5);
+  assert.deepEqual(sept.rows.map((r) => r.fechaAccion), ['2026-09-10', '2026-09-11', '2026-09-12', '2026-09-13', '2026-09-14']);
+  assert.deepEqual(mapper.buildActivos(t, {}, {}).clienteOptions, ['A', 'B']);
+  assert.equal(mapper.buildActivos(t, { clientes: ['B'] }, {}).kpis.total, 1);
+});

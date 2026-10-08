@@ -141,7 +141,7 @@
           </div>
           <button type="button" id="dash-limpiar" class="btn-secondary">Limpiar</button>
           <div id="dash-chips" class="flex flex-wrap gap-2 items-center" hidden></div>
-          <p class="text-[11px] text-slate-400 ml-auto max-w-sm">Las tarjetas cuentan tickets activos por Fecha Soporte Inicial, igual que Primer y Segundo Nivel. Haz clic en una tarjeta para filtrar.</p>
+          <p class="text-[11px] text-slate-400 ml-auto max-w-sm">Las tarjetas cuentan tickets activos según la fecha de su acción actual, igual que Primer y Segundo Nivel. Haz clic en una tarjeta para filtrar.</p>
         </div>
 
         <!-- Tarjetas -->
@@ -322,13 +322,27 @@
               </div>
             </div>
           </div>
-          <!-- Fecha de creación = columna Fecha del ticket -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-creacion-desde">Fecha de creación desde</label>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" id="filter-act-cliente-label">Cliente</label>
+            <div class="multi-select" id="filter-act-cliente">
+              <button type="button" class="filter-select multi-select-trigger" id="filter-act-cliente-trigger" aria-haspopup="listbox" aria-expanded="false">Todos los clientes</button>
+              <div class="multi-select-panel" id="filter-act-cliente-panel" role="listbox" hidden>
+                <input type="text" id="filter-act-cliente-search" class="multi-select-search" placeholder="Buscar..." />
+                <label class="multi-select-option multi-select-all">
+                  <input type="checkbox" id="filter-act-cliente-all" checked /> Todos
+                </label>
+                <div class="multi-select-list" id="filter-act-cliente-list"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Fecha = desde cuándo el requerimiento está activo en su acción actual (ver fechaAccionActual en mapper.js) -->
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-creacion-desde">Activo desde</label>
             <input type="date" id="filter-act-creacion-desde" class="filter-select input-base" />
           </div>
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-creacion-hasta">Fecha de creación hasta</label>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-act-creacion-hasta">Activo hasta</label>
             <input type="date" id="filter-act-creacion-hasta" class="filter-select input-base" />
           </div>
           <!-- Acción (selección múltiple): solo las 4 acciones de Primer Nivel
@@ -376,7 +390,7 @@
         <div id="act-fechas-banner" class="flex items-start gap-2 bg-sky-50 border border-sky-200 rounded-xl px-4 py-2.5 mb-6 text-[11px] text-sky-800">
           <svg class="w-4 h-4 shrink-0 mt-0.5 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           <div class="space-y-1">
-            <p><strong>Nota sobre fechas:</strong> la Fecha de creación corresponde a la Fecha Soporte Inicial, que es la fecha programada para el soporte. Por eso hay tickets, sobre todo en Realizar, con fechas posteriores a hoy: ya están agendados para más adelante. Si el rango «hasta» no llega a esas fechas, quedan fuera del conteo; de ahí que el total con filtro pueda ser menor que sin filtro.</p>
+            <p><strong>Nota sobre fechas:</strong> el rango filtra por la fecha desde la que cada requerimiento está activo en su acción actual (Realizar: Fecha Soporte Inicial; Entrega Final: Fecha Entrega Inicial; Cierre: Fecha Entrega Final o Soporte Final). En Realizar esa fecha es la programada para el soporte, por eso puede haber tickets con fechas posteriores a hoy: si el rango «hasta» no llega a esas fechas, quedan fuera del conteo.</p>
             <p id="act-fechas-detalle" hidden></p>
           </div>
         </div>
@@ -533,13 +547,27 @@
               </div>
             </div>
           </div>
-          <!-- Fecha de creación = Fecha Soporte Inicial -->
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-sn-creacion-desde">Fecha de creación desde</label>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" id="filter-sn-cliente-label">Cliente</label>
+            <div class="multi-select" id="filter-sn-cliente">
+              <button type="button" class="filter-select multi-select-trigger" id="filter-sn-cliente-trigger" aria-haspopup="listbox" aria-expanded="false">Todos los clientes</button>
+              <div class="multi-select-panel" id="filter-sn-cliente-panel" role="listbox" hidden>
+                <input type="text" id="filter-sn-cliente-search" class="multi-select-search" placeholder="Buscar..." />
+                <label class="multi-select-option multi-select-all">
+                  <input type="checkbox" id="filter-sn-cliente-all" checked /> Todos
+                </label>
+                <div class="multi-select-list" id="filter-sn-cliente-list"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Fecha = desde cuándo el requerimiento está activo en su acción actual (ver fechaAccionActual en mapper.js) -->
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-sn-creacion-desde">Activo desde</label>
             <input type="date" id="filter-sn-creacion-desde" class="filter-select input-base" />
           </div>
           <div>
-            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-sn-creacion-hasta">Fecha de creación hasta</label>
+            <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1" for="filter-sn-creacion-hasta">Activo hasta</label>
             <input type="date" id="filter-sn-creacion-hasta" class="filter-select input-base" />
           </div>
           <!-- Acción (selección múltiple): solo las 4 acciones de Segundo Nivel

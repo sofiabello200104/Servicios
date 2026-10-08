@@ -1326,6 +1326,25 @@
   //     and Segundo Nivel's own filters.recursos. Narrows `filtered` before
   //     the kpis/recursosServicios/porCliente/porAccion/porProducto/rows
   //     aggregation, so it affects the whole computed output at once.
+  // Fecha desde la que el requerimiento está activo en su acción ACTUAL
+  // (filtro de fechas de Primer/Segundo Nivel y tarjetas del Dashboard):
+  //   REALIZAR                          -> Fecha Soporte Inicial
+  //   ENTREGA FINAL / AGENDAR ENTREGA   -> Fecha Entrega Inicial
+  //   CIERRE                            -> Fecha Entrega Final (si no, Soporte Final)
+  //   REVISION CALIDAD                  -> Fecha Inicial Diagnóstico Calidad
+  //   REVISION DEV                      -> Fecha DEV Inicial
+  //   REVISION SOLUCION / ACTUALIZAR V. -> Fecha Inicial Revisión Solución
+  // Si la fecha de esa acción viene vacía, se usa Fecha Soporte Inicial.
+  function fechaAccionActual(t) {
+    var a = t.accionNorm, d = null;
+    if (a === 'ENTREGA FINAL' || a === 'AGENDA ENTREGA FINAL' || a === 'AGENDAR ENTREGA FINAL') d = t.fechaEntregaInicial;
+    else if (a === 'CIERRE') d = t.fechaEntregaFinal || t.fechaSoporteFinal;
+    else if (a === 'REVISION CALIDAD') d = t.fechaCalidadInicial;
+    else if (a === 'REVISION DEV') d = t.fechaDevInicial;
+    else if (a === 'REVISION SOLUCION' || a === 'ACTUALIZA VERSION' || a === 'ACTUALIZAR VERSION') d = t.fechaSolucionInicial;
+    return d || t.fechaSoporteInicial || null;
+  }
+
   var RECURSO_OTRO = 'Otro';
   function buildActivos(tickets, filters, opts) {
     filters = filters || {};
@@ -1381,10 +1400,15 @@
       recursoOptions = Array.from(new Set(conAcciones.map(function (t) { return recursoDeTicket.get(t); }))).sort();
     }
 
+    var clienteOptions = hasCliente ? Array.from(new Set((accionesPermitidas
+      ? universe.filter(function (t) { return accionesPermitidas.indexOf(t.accionNorm) !== -1; })
+      : universe).map(function (t) { return t.cliente || 'Sin cliente'; }))).sort(function (a, b) { return a.localeCompare(b); }) : [];
+
     var creacionFrom = filters.fechaCreacionFrom ? asUTCDate(filters.fechaCreacionFrom) : null;
     var creacionTo = filters.fechaCreacionTo ? asUTCDate(filters.fechaCreacionTo) : null;
     var requerimientosFilter = isAllSelector(filters.requerimientos) ? null : filters.requerimientos;
     var recursosFilter = isAllSelector(filters.recursos) ? null : filters.recursos;
+    var clientesFilter = isAllSelector(filters.clientes) ? null : filters.clientes;
 
     // Compare by calendar day (both sides truncated to UTC midnight) so a
     // ticket stamped 14:30 on the "hasta" day is still inside the range.
@@ -1398,7 +1422,8 @@
     }
 
     var filtered = universe.filter(function (t) {
-      if (outsideRange(t.fechaSoporteInicial, creacionFrom, creacionTo)) return false;
+      if (outsideRange(fechaAccionActual(t), creacionFrom, creacionTo)) return false;
+      if (clientesFilter && clientesFilter.indexOf(t.cliente || 'Sin cliente') === -1) return false;
       if (requerimientosFilter && requerimientosFilter.indexOf(t.requerimientoOpcion) === -1) return false;
       if (recursosFilter && recursosFilter.indexOf(recursoDeTicket.get(t)) === -1) return false;
       return true;
@@ -1419,8 +1444,10 @@
       if (accionesPermitidas && accionesPermitidas.indexOf(t.accionNorm) === -1) return;
       if (requerimientosFilter && requerimientosFilter.indexOf(t.requerimientoOpcion) === -1) return;
       if (recursosFilter && recursosFilter.indexOf(recursoDeTicket.get(t)) === -1) return;
-      if (!t.fechaSoporteInicial) return;
-      var day = toUTCDateOnly(t.fechaSoporteInicial).getTime();
+      if (clientesFilter && clientesFilter.indexOf(t.cliente || 'Sin cliente') === -1) return;
+      var fa = fechaAccionActual(t);
+      if (!fa) return;
+      var day = toUTCDateOnly(fa).getTime();
       if (creacionTo && day > creacionTo.getTime()) {
         fechasFuturas.excluidosPosterior += 1;
         fechasFuturas.excluidosPorAccion[t.accionNorm] = (fechasFuturas.excluidosPorAccion[t.accionNorm] || 0) + 1;
@@ -1491,7 +1518,8 @@
         cliente: t.cliente, // null while the Cliente column is absent -> UI shows "—"
         producto: t.producto,
         accion: t.accionNorm,
-        asunto: t.asunto
+        asunto: t.asunto,
+        fechaAccion: fechaAccionActual(t) ? isoDate(toUTCDateOnly(fechaAccionActual(t))) : null
       };
     });
     rows.sort(function (a, b) { return String(a.id).localeCompare(String(b.id), undefined, { numeric: true }); });
@@ -1508,6 +1536,7 @@
       hasRequerimiento: hasRequerimiento,
       requerimientoOptions: requerimientoOptions,
       recursoOptions: recursoOptions,
+      clienteOptions: clienteOptions,
       fechasFuturas: fechasFuturas,
       rows: rows
     };
@@ -1713,7 +1742,7 @@
 
     // ---- Tarjetas (mismo universo que los KPIs de los módulos) ----
     var activos = tickets.filter(function (t) {
-      return t.estado === 1 && t.accionNorm !== 'CREAR' && enRango(t.fechaSoporteInicial, hasta);
+      return t.estado === 1 && t.accionNorm !== 'CREAR' && enRango(fechaAccionActual(t), hasta);
     });
     var porAccion = {}, porProceso = {}, total = 0;
     activos.forEach(function (t) {
@@ -1848,6 +1877,7 @@
     RECURSO_OTRO: RECURSO_OTRO,
     buildRecursoTickets: buildRecursoTickets,
     buildActivos: buildActivos,
+    fechaAccionActual: fechaAccionActual,
     buildDashboardCentral: buildDashboardCentral,
     DASH_SERIES: DASH_SERIES,
     ACTIVOS_SERVICIOS_ACCIONES: ACTIVOS_SERVICIOS_ACCIONES,
